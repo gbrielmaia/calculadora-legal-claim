@@ -115,6 +115,8 @@
 
   /* layout */
   .grid { display:grid; grid-template-columns:400px 1fr; gap:24px; margin-top:22px; align-items:start; }
+  .grid > * { min-width:0; }
+  .panel { min-width:0; }
   @media (max-width:900px) { .grid { grid-template-columns:1fr; } }
   .panel { border:1px solid var(--rule-strong); background:var(--card); padding:16px 18px; }
   .panel + .panel { margin-top:18px; }
@@ -166,7 +168,7 @@
 
   /* flags — sempre visíveis, nunca colapsadas */
   .flagsbox { margin-top:4px; }
-  .flagitem { padding:9px 11px; margin-top:7px; background:var(--accent-bg); border-left:3px solid var(--gold); font-size:11.5px; line-height:1.5; color:var(--ink-2); }
+  .flagitem { padding:9px 11px; margin-top:7px; background:var(--accent-bg); border-left:3px solid var(--gold); font-size:11.5px; line-height:1.5; color:var(--ink-2); overflow-wrap:anywhere; }
   .flagitem.ok { border-left-color:var(--rule-strong); background:transparent; color:var(--ink-mute); font-style:italic; }
 
   /* erro / recusa — estado dedicado */
@@ -209,6 +211,18 @@
   tr.lote-flagsrow td { background:var(--paper-2); padding:8px 10px; }
   tfoot .res, tfoot td { font-family:'IBM Plex Mono',monospace; }
 
+  @media (max-width:600px) {
+    .wrap { padding:18px 14px 40px; }
+    h1 { font-size:25px; margin-top:8px; }
+    header.top { align-items:flex-start; }
+    .top .logo { height:32px; }
+    input[type=number], input[type=date] { width:126px; }
+    .field { flex-wrap:wrap; }
+    .res .v { font-size:24px; }
+    .banners { display:flex; flex-wrap:wrap; gap:8px; }
+    .selftest { font-size:10px; }
+    .errorbox .msg { overflow-wrap:anywhere; }
+  }
   @media print { .noprint { display:none !important; } }
 
   /* ============================================================ F4: relatório imprimível (PDF)
