@@ -140,6 +140,52 @@
   tfoot .res, tfoot td { font-family:'IBM Plex Mono',monospace; }
 
   @media print { .noprint { display:none !important; } }
+
+  /* ============================================================ F4: relatório imprimível (PDF)
+     O rodapé ("toda página") NÃO usa position:fixed. Verificação empírica desta tarefa (headless
+     Chrome + CDP Page.printToPDF, casos com ~80-190 competências): um rodapé fixed sobrepunha ~1
+     linha da tabela de memória perto do fim de cada página impressa, e o problema NÃO desaparecia
+     aumentando a margem inferior do @page (o Chromium tem um defeito conhecido de paginação de
+     tabelas onde a decisão de quebra de <tr> não reserva espaço corretamente para elementos fora
+     do fluxo). Troca: tudo dentro de UMA tabela externa (.rel-outer) com <tfoot> nativo -- o
+     mesmo mecanismo de "cabeçalho repetido por página" pedido para a tabela de memória
+     (thead/table-header-group), espelhado para o rodapé (tfoot/table-footer-group). Como o
+     rodapé participa do MESMO algoritmo de paginação que decide as quebras, o navegador reserva
+     o espaço corretamente -- sem a categoria de bug acima. */
+  #relatorioImprimivel { display:none; }
+  table.rel-outer { width:100%; border-collapse:collapse; }
+  table.rel-outer > tbody > tr > td, table.rel-outer > tfoot > tr > td { padding:0; border:none; }
+  .rel-header { margin-bottom:16px; }
+  .rel-header .brand { font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-mute); font-weight:600; }
+  .rel-header h1 { font-family:'Fraunces',serif; font-weight:400; font-size:23px; margin:6px 0 8px; letter-spacing:-.01em; }
+  .rel-header .meta { font-size:11px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; line-height:1.6; }
+  table.rel-dados { width:100%; border-collapse:collapse; font-size:12px; }
+  table.rel-dados td { padding:5px 8px; border-bottom:1px dotted var(--rule); vertical-align:top; }
+  table.rel-dados td:first-child { color:var(--ink-soft); width:42%; }
+  table.rel-dados td:last-child { font-family:'IBM Plex Mono',monospace; color:var(--ink); }
+  .rel-fontes { margin-top:6px; font-size:10.5px; color:var(--ink-soft); line-height:1.6; }
+  .rodape-fixo { padding-top:6px; border-top:1px solid var(--rule-strong); font-size:8.5px;
+    color:var(--ink-mute); font-family:'IBM Plex Mono',monospace; line-height:1.45; margin-top:10px; }
+
+  @page { size:A4; margin:16mm 14mm 20mm 14mm; }
+
+  @media print {
+    html, body { background:#fff !important; }
+    body.modo-relatorio > .wrap { display:none !important; }
+    body.modo-relatorio > .toast { display:none !important; }
+    body.modo-relatorio #relatorioImprimivel { display:block !important; }
+    #relatorioImprimivel .panel { page-break-inside:avoid; break-inside:avoid;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    #relatorioImprimivel .flagitem, #relatorioImprimivel .destaque {
+      page-break-inside:avoid; break-inside:avoid;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    table.rel-outer > tfoot { display:table-footer-group; }
+    table.rel-outer > tbody { display:table-row-group; }
+    table.rel-outer > tbody > tr.rel-row-avoid { page-break-inside:avoid; break-inside:avoid; }
+    #relatorioImprimivel .rel-memtab thead { display:table-header-group; }
+    #relatorioImprimivel .rel-memtab tbody { display:table-row-group; }
+    #relatorioImprimivel .rel-memtab tr { page-break-inside:avoid; break-inside:avoid; }
+  }
 </style>
 </head>
 <body>
@@ -279,6 +325,7 @@
             <div class="btnrow">
               <button class="btn" onclick="copiarResumo()">copiar resumo</button>
               <button class="btn" onclick="baixarMemoriaCsv()">baixar memória (CSV)</button>
+              <button class="btn" id="btnRelatorioPdf" onclick="gerarRelatorioPDF()">relatório (PDF)</button>
             </div>
           </div>
         </div>
@@ -950,6 +997,7 @@ precifica.</em></p></div>
     <a href="https://gbrielmaia.github.io/simulador-precatorio/">simulador de precatório</a>.
   </footer>
 </div>
+<div id="relatorioImprimivel"></div>
 <div id="toast" class="toast"></div>
 
 <script>
@@ -2429,6 +2477,160 @@ function baixarMemoriaCsv(){
   a.click();
   a.remove();
 }
+
+// ---------------------------------------------------------------- F4: relatório imprimível (PDF)
+const ENTE_LABEL = {uniao:'União', estadual:'Estadual (Justiça Federal)', municipal:'Municipal (Justiça Federal)'};
+const TIPO_RELACAO_LABEL = {contratual:'Contratual', extracontratual:'Extracontratual', previdenciario:'Previdenciário'};
+const NATUREZA_VERBA_LABEL = {geral:'Geral', servidor:'Servidor', militar:'Militar', desapropriacao:'Desapropriação', trabalhista:'Trabalhista'};
+const NATUREZA_LABEL = {tributario:'Tributário', nao_tributario:'Não-tributário'};
+
+function fmtDataBR(iso){
+  if (!iso) return '—';
+  const p = String(iso).split('-');
+  if (p.length !== 3) return iso;
+  return p[2] + '/' + p[1] + '/' + p[0];
+}
+
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function montarLinhasJurosManuais(lista){
+  if (!lista || !lista.length) return 'Nenhuma janela de juros manuais do título.';
+  return lista.map(function(j){
+    return 'De ' + fmtDataBR(j.de) + ' até ' + fmtDataBR(j.ate) + ': ' + String(j.taxa).replace('.', ',') +
+      '% ' + j.unidade + ', regime ' + j.regime;
+  }).join('<br>');
+}
+
+// Monta o DOM do relatório (#relatorioImprimivel) e liga o modo de impressão (classe no <body>),
+// sem chamar window.print() -- separado de gerarRelatorioPDF() para permitir verificação headless
+// (CDP Page.printToPDF renderiza o estado atual do DOM, independente de window.print() ter rodado).
+function prepararRelatorioParaImpressao(){
+  if (!ULTIMO) return false;
+  const cr = ULTIMO.cr, res = ULTIMO.res, hon = ULTIMO.hon;
+  const agora = new Date();
+  const dataHoraGeracao = agora.toLocaleDateString('pt-BR') + ' ' +
+    agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+
+  let flagsHtml;
+  if (!res.flags_pendentes.length){
+    flagsHtml = '<div class="flagitem ok">Nenhuma sinalização pendente neste cálculo.</div>';
+  } else {
+    flagsHtml = res.flags_pendentes.map(function(f){
+      return '<div class="flagitem">' + escapeHtml(f.replace(/^PENDENTE_ADVOGADO_PRECATORIOS:\s*/, '')) + '</div>';
+    }).join('');
+  }
+
+  let honHtml = '';
+  if (hon){
+    const baseLbl = $('inHonorarioBase').value === 'principal' ? 'principal + correção' : 'total da execução';
+    honHtml =
+      '<div class="res"><span class="k">Honorários (' + $('inHonorarioPct').value.replace('.', ',') + '%, base: ' +
+      baseLbl + ')</span><span class="v">' + fmtBRL(hon.valor) + '</span></div>' +
+      '<div class="res tot"><span class="k">Total com honorários</span><span class="v">' +
+      fmtBRL(res.valor_corrigido_hoje + hon.valor) + '</span></div>';
+  }
+
+  let memRows = '';
+  res.memoria.forEach(function(m){
+    memRows +=
+      '<tr><td>' + m.competencia + '</td><td>' + m.regime + '</td><td>' + m.indice + '</td>' +
+      '<td>' + m.fator_correcao_mes.toFixed(6) + '</td><td>' + (m.taxa_juros_mes*100).toFixed(4) + '%</td>' +
+      '<td>' + escapeHtml(m.base_legal) + '</td></tr>';
+  });
+
+  // Tudo dentro de UMA tabela externa (rel-outer): tbody = seções curtas com quebra evitada
+  // (rel-row-avoid) + a seção da memória (sem avoid, para poder quebrar entre paginas); tfoot =
+  // rodape, repetido em toda pagina pelo mesmo mecanismo nativo do <thead> da tabela de memoria
+  // (ver comentario no CSS -- troca deliberada de position:fixed por um defeito de paginacao
+  // encontrado na verificacao headless desta tarefa).
+  const html =
+    '<table class="rel-outer"><tbody>' +
+
+    '<tr class="rel-row-avoid"><td><div class="rel-header">' +
+      '<div class="brand">Chess Capital · Centro Analítico</div>' +
+      '<h1>Calculadora de Precatórios — Relatório de Cálculo</h1>' +
+      '<div class="meta">Cálculo gerado em ' + dataHoraGeracao + ' &middot; Índices atualizados até ' +
+      SERIES_DATA.gerado_em + ' &middot; Método oficial CJF (Manual de Cálculos da Justiça Federal, Res. CJF 990/2026)</div>' +
+    '</div></td></tr>' +
+
+    '<tr class="rel-row-avoid"><td><div class="panel">' +
+      '<h2 class="sec">Dados do crédito</h2>' +
+      '<table class="rel-dados">' +
+        '<tr><td>Valor original</td><td>' + fmtBRL(cr.valor_historico) + '</td></tr>' +
+        '<tr><td>Data-base da correção</td><td>' + fmtDataBR(cr.data_base_correcao) + '</td></tr>' +
+        '<tr><td>Data da citação</td><td>' + fmtDataBR(cr.data_termo_inicial_juros) + '</td></tr>' +
+        '<tr><td>Data do cálculo</td><td>' + fmtDataBR(cr.data_calculo) + '</td></tr>' +
+        '<tr><td>Ente devedor</td><td>' + (ENTE_LABEL[cr.ente]||cr.ente) + '</td></tr>' +
+        '<tr><td>Tipo de relação</td><td>' + (TIPO_RELACAO_LABEL[cr.tipo_relacao]||cr.tipo_relacao) + '</td></tr>' +
+        '<tr><td>Natureza da verba</td><td>' + (NATUREZA_VERBA_LABEL[cr.natureza_verba]||cr.natureza_verba) + '</td></tr>' +
+        '<tr><td>Tributário?</td><td>' + (NATUREZA_LABEL[cr.natureza]||cr.natureza) + '</td></tr>' +
+        '<tr><td>Data de expedição (precatório)</td><td>' +
+          (cr.data_expedicao ? fmtDataBR(cr.data_expedicao) : 'Em aberto (fase de conhecimento)') + '</td></tr>' +
+        '<tr><td>Juros manuais do título</td><td>' + montarLinhasJurosManuais(cr.juros_manuais) + '</td></tr>' +
+        '<tr><td>Data da conta</td><td>' + fmtDataBR(cr.data_conta) + '</td></tr>' +
+        '<tr><td>Já expedido antes de 25/03/2015?</td><td>' + (cr.ja_expedido_em_2015_03_25 ? 'Sim' : 'Não') + '</td></tr>' +
+        '<tr><td>Período de graça</td><td>' +
+          (cr.graca_inicio ? (fmtDataBR(cr.graca_inicio) + ' até ' + fmtDataBR(cr.graca_fim)) : 'Nenhum') + '</td></tr>' +
+        '<tr><td>Inadimplente (override do período de graça)?</td><td>' + (cr.inadimplente ? 'Sim' : 'Não') + '</td></tr>' +
+      '</table>' +
+    '</div></td></tr>' +
+
+    '<tr class="rel-row-avoid"><td><div class="panel">' +
+      '<h2 class="sec">Valor atualizado</h2>' +
+      '<div class="destaque"><div class="k">Valor de face na data do cálculo</div><div class="v">' +
+        fmtBRL(res.valor_corrigido_hoje) + '</div></div>' +
+      '<div class="decomp">' +
+        '<div class="res"><span class="k">Principal original (A)</span><span class="v">' + fmtBRL(res.principal) + '</span></div>' +
+        '<div class="res"><span class="k">Correção monetária</span><span class="v">' + fmtBRL(res.correcao) + '</span></div>' +
+        '<div class="res tot"><span class="k">Principal corrigido (C)</span><span class="v">' + fmtBRL(res.principal + res.correcao) + '</span></div>' +
+        '<div class="res"><span class="k">Juros até 12/2021 (G)</span><span class="v">' + fmtBRL(res.juros_ate_2021) + '</span></div>' +
+        '<div class="res"><span class="k">Juros Selic — EC113 (H)</span><span class="v">' + fmtBRL(res.juros_selic) + '</span></div>' +
+        '<div class="res"><span class="k">Juros fase nova (I)</span><span class="v">' + fmtBRL(res.juros_fase_nova) + '</span></div>' +
+        '<div class="res"><span class="k">Ajuste teto EC136</span><span class="v">' + fmtBRL(res.ajuste_teto_ec136) + '</span></div>' +
+        honHtml +
+      '</div>' +
+    '</div></td></tr>' +
+
+    '<tr class="rel-row-avoid"><td><div class="panel">' +
+      '<h2 class="sec">Sinalizações pendentes</h2>' +
+      '<div class="flagsbox">' + flagsHtml + '</div>' +
+    '</div></td></tr>' +
+
+    '<tr><td><div class="panel rel-memoria">' +
+      '<h2 class="sec">Memória de cálculo completa (' + res.memoria.length + ' competências)</h2>' +
+      '<table class="memtab rel-memtab">' +
+        '<thead><tr><th>Competência</th><th>Regime</th><th>Índice</th><th>Fator</th><th>Juros do mês</th><th>Base legal</th></tr></thead>' +
+        '<tbody>' + memRows + '</tbody>' +
+      '</table>' +
+    '</div></td></tr>' +
+
+    '<tr class="rel-row-avoid"><td><div class="rel-fontes">' +
+      'Fontes: Manual de Cálculos da Justiça Federal — Resolução CJF n. 990/2026 (método oficial de atualização de ' +
+      'créditos contra a Fazenda Pública, itens 4.1 a 4.7). PDF: sicom.cjf.jus.br/arquivos/pdf/manual_de_calculos_2026.pdf. ' +
+      'Detalhamento por fase/janela/ente na aba "Regras do cálculo" desta calculadora.' +
+    '</div></td></tr>' +
+
+    '</tbody><tfoot><tr><td><div class="rodape-fixo">' +
+      'Valor de face — não constitui oferta, cotação nem recomendação. Não é conta de liquidação. ' +
+      'Chess Capital · Centro Analítico — Calculadora de Precatórios (método oficial CJF).' +
+    '</div></td></tr></tfoot></table>';
+
+  $('relatorioImprimivel').innerHTML = html;
+  document.body.classList.add('modo-relatorio');
+  return true;
+}
+
+function gerarRelatorioPDF(){
+  if (!ULTIMO){ toast('Calcule um crédito antes de gerar o relatório.'); return; }
+  if (!prepararRelatorioParaImpressao()) return;
+  window.print();
+}
+
+window.addEventListener('afterprint', function(){
+  document.body.classList.remove('modo-relatorio');
+});
 
 // ---------------------------------------------------------------- F3: lote (CSV)
 let ULTIMO_LOTE = null;
