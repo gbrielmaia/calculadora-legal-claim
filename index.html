@@ -133,7 +133,7 @@
       <div class="brand"><span class="sym"></span><span class="bn">Chess Capital</span></div>
       <h1>Calculadora de <em>Precatórios</em></h1>
     </div>
-    <div class="right">Motor de índices D-072/D-073<br>Método oficial CJF</div>
+    <div class="right">Motor de índices<br>Método oficial CJF</div>
   </header>
 
   <div class="banners">
@@ -264,12 +264,17 @@
 <strong>todas as regras de cálculo</strong> que o motor de correção de créditos judiciais implementa — para
 <strong>pré-precatório (fase de conhecimento)</strong> e <strong>precatório (expedido)</strong>. É também o conteúdo da aba
 "Regras do cálculo" do site.</p>
-<p><strong>Fonte de verdade do motor:</strong> <code>_sistema/ferramentas/indices/</code> (D-072/D-073). Toda regra abaixo
-está ancorada em fonte primária já verificada — o <strong>Manual de Cálculos da Justiça Federal, Res. CJF
-990/2026</strong> (fase de liquidação), a <strong>Res. CJF 983/2026</strong> (atualização do precatório expedido), as
-<strong>EC 113/2021 e EC 136/2025</strong> e os pareceres do agente <code>advogado-precatorios</code>. As páginas citadas são
-as <strong>impressas</strong> no rodapé do Manual (a página impressa N é a física N+1 no PDF).</p>
-<p><strong>Regra de ouro deste manual:</strong> só descreve o que a fonte sustenta e o motor de fato faz. Onde o
+<p><strong>Fontes do motor.</strong> Toda regra abaixo está ancorada em fonte primária verificada. As três fontes de
+método são o <strong><a href="https://sicom.cjf.jus.br/arquivos/pdf/manual_de_calculos_2026.pdf">Manual de Cálculos da Justiça Federal, Res. CJF 990/2026</a></strong>
+(fase de liquidação/conhecimento), a <strong><a href="https://static.trf2.jus.br/nas-internet/documento/consultas/precatorios/legislacao/resolucao-983-2026.pdf">Res. CJF 983/2026</a></strong>
+(atualização do precatório expedido) e as Emendas Constitucionais
+<strong><a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc113.htm">113/2021</a></strong> e
+<strong><a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc136.htm">136/2025</a></strong>. Cada
+citação de legislação neste manual leva um <strong>link para o texto oficial</strong> (Planalto, CJF ou Banco
+Central) — o leitor pode abrir, baixar e conferir de onde a conclusão saiu.</p>
+<p><strong>Sobre as páginas citadas.</strong> As páginas do Manual CJF referidas abaixo são as <strong>impressas</strong> no
+rodapé do PDF (a página impressa N é a física N+1 no arquivo).</p>
+<p><strong>Critério deste manual.</strong> Só descreve o que a fonte sustenta e o que o motor de fato faz. Onde o
 motor <strong>recusa</strong> ou <strong>sinaliza (flag)</strong>, o manual diz que recusa/sinaliza e por quê — as limitações
 são parte da regra, não omissão. <strong>Número sinalizado (flag) não é número validado.</strong></p>
 </blockquote>
@@ -285,10 +290,10 @@ e <strong>juros de mora</strong>, mais a memória de cálculo mês a mês e a li
 <h3>Não faz</h3>
 <ul>
 <li><strong>Não precifica.</strong> Não recomenda deságio, TIR nem preço de compra. É valor de face, não valor de
-  mercado (fronteira <strong>D-059/D-051</strong> — a precificação é feita por ferramentas avulsas, separadas).</li>
+  mercado — a precificação é feita por ferramentas avulsas, separadas.</li>
 <li><strong>Não projeta o futuro.</strong> Corrige do passado até a data de corte informada; a projeção de fluxo
   futuro (recebimento, earn-out) é do <strong>simulador de precatório</strong>, que consome o <code>valor atualizado</code>
-  produzido aqui (D-065).</li>
+  produzido aqui.</li>
 <li><strong>Não cobre a Justiça Estadual por trilho próprio.</strong> O motor é <strong>federal</strong> — usa o coeficiente do
   CJF/SICOM e a tabela de juros do Manual CJF. Para crédito estadual/municipal (executado fora da
   Justiça Federal), a fonte própria seria a Tabela Prática do tribunal pagador (TJSP/DEPRE etc.),
@@ -311,12 +316,12 @@ e <strong>juros de mora</strong>, mais a memória de cálculo mês a mês e a li
 <tbody>
 <tr>
 <td><strong>Condenatória em geral contra a Fazenda</strong></td>
-<td>Manual CJF 990/2026, <strong>item 4.2</strong></td>
+<td><a href="https://sicom.cjf.jus.br/arquivos/pdf/manual_de_calculos_2026.pdf">Manual CJF 990/2026</a>, <strong>item 4.2</strong></td>
 <td>Regra-mãe do motor (default)</td>
 </tr>
 <tr>
 <td><strong>Benefício previdenciário (RGPS/INSS)</strong></td>
-<td>Manual CJF 990/2026, <strong>item 4.3</strong></td>
+<td><a href="https://sicom.cjf.jus.br/arquivos/pdf/manual_de_calculos_2026.pdf">Manual CJF 990/2026</a>, <strong>item 4.3</strong></td>
 <td>Crédito previdenciário — indexadores e juros próprios</td>
 </tr>
 </tbody>
@@ -324,17 +329,20 @@ e <strong>juros de mora</strong>, mais a memória de cálculo mês a mês e a li
 <p>O roteamento usa cinco eixos, cada um governando uma coisa diferente:</p>
 <ol>
 <li><strong>Natureza (<code>Natureza</code>): tributário × não-tributário.</strong> Crédito <strong>tributário</strong> (repetição de
-   indébito) é <strong>Selic em todas as janelas, inclusive pós-EC 136</strong> (art. 39 §4º da Lei 9.250/1995,
-   inalterado pela EC 113/EC 136 — Manual item 4.4). É override que substitui a tabela de fases.</li>
+   indébito) é <strong>Selic em todas as janelas, inclusive pós-EC 136</strong> (art. 39 §4º da
+   <a href="https://www.planalto.gov.br/ccivil_03/leis/l9250.htm">Lei 9.250/1995</a>, inalterado pelas
+   EC 113/EC 136 — Manual item 4.4). Prevalece sobre a tabela de fases.</li>
 <li><strong>Tipo de relação (<code>TipoRelacao</code>): contratual / extracontratual / previdenciário.</strong> Governa o
-   <strong>termo inicial dos juros</strong>: contratual → citação (CC 405; CPC 240); extracontratual → evento
-   danoso (tese da Súmula 54/STJ, citada sem o número — ver §9); previdenciário → citação (tese da
-   Súmula 204/STJ). <code>PREVIDENCIARIO</code> também aciona o trilho do item 4.3.</li>
+   <strong>termo inicial dos juros</strong>: contratual → citação (art. 405 do
+   <a href="https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm">Código Civil</a>; art. 240 do
+   <a href="https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13105.htm">CPC</a>); extracontratual →
+   evento danoso (tese da Súmula 54/STJ, citada sem o número — ver §9); previdenciário → citação
+   (tese da Súmula 204/STJ). <code>PREVIDENCIARIO</code> também aciona o trilho do item 4.3.</li>
 <li><strong>Natureza da verba (<code>NaturezaVerba</code>), eixo ortogonal ao tipo de relação:</strong> <code>GERAL</code> (default),
    <code>SERVIDOR</code>, <code>MILITAR</code>, <code>DESAPROPRIACAO</code>, <code>TRABALHISTA</code>. O Manual define essas categorias pela
    <strong>natureza da verba</strong> (transversal ao tipo de relação — um servidor estatutário é não-contratual e
    um empregado público celetista é contratual, e ambos caem na mesma regra). Governa recusa/flag
-   (§7). Fundamento: parecer <code>advogado-precatorios</code> Q1.</li>
+   (§7).</li>
 <li><strong>Ente (<code>Ente</code>): União / Estadual / Municipal.</strong> O índice e os juros são <strong>uniformes</strong> por comando
    constitucional; o ente muda apenas a <strong>data de corte da EC 136</strong> (União 10/09/2025; Estados/DF/Mun
    01/08/2025) e o regime de recebimento/teto RCL (que afeta prazo, não índice).</li>
@@ -344,18 +352,20 @@ e <strong>juros de mora</strong>, mais a memória de cálculo mês a mês e a li
 <blockquote>
 <p><strong>O que NÃO altera o índice:</strong> "alimentar × comum" muda só ordem/preferência e teto de RPV, não o
 índice — o motor não ramifica por isso. Um crédito pode ser alimentar <strong>e</strong> tributário (=Selic) ao
-mesmo tempo: preferência e índice são eixos separados (novo §1º do art. 100 CF, red. EC 136).</p>
+mesmo tempo: preferência e índice são eixos separados (novo §1º do art. 100 da
+<a href="https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm">CF/88</a>, red.
+<a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc136.htm">EC 136</a>).</p>
 </blockquote>
 <hr />
 <h2>3. Correção monetária</h2>
-<h3>3.1 A espinha CJF (coeficiente oficial)</h3>
+<h3>3.1 A tabela-base do CJF (coeficiente oficial)</h3>
 <p>A correção é um <strong>fator multiplicativo encadeado</strong>: <code>Valor_corrigido = Valor_histórico × Π(1 + iₘ)</code>. O
 fator de cada mês é a <strong>razão entre coeficientes oficiais</strong> da tabela do CJF — não uma série
 reconstruída. O motor carrega <code>coef_correcao_naotrib.csv</code>: <strong>742 competências, de out/1964 a jul/2026</strong>
-(condenatória Fazenda Pública, SICOM/CJF). Essa espinha única já embute a cadeia histórica de
+(condenatória Fazenda Pública, SICOM/CJF). Essa tabela única já embute a cadeia histórica de
 indexadores (ORTN → OTN → BTN → UFIR → INPC → IPCA-E) <strong>e os expurgos</strong> (Bresser, Verão, Collor I e II)
 — por isso os expurgos <strong>nunca são reaplicados</strong> por fora (Manual §8.5: "o coeficiente já embute").
-O batimento contra conta oficial reproduz o índice até a 9ª casa decimal (§8).</p>
+A comparação com conta oficial reproduz o índice até a 9ª casa decimal (§8).</p>
 <h3>3.2 As fases de correção (F1–F5)</h3>
 <p>A classificação por competência (<code>classifica_regime</code>) define o índice de cada mês:</p>
 <table>
@@ -372,13 +382,13 @@ O batimento contra conta oficial reproduz o índice até a 9ª casa decimal (§8
 <td><strong>F1</strong></td>
 <td>fato gerador → jun/2009</td>
 <td>cadeia ORTN..IPCA-E + expurgos (via coef CJF)</td>
-<td>Lei 6.899/81; art. 1º-F Lei 9.494/97</td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/leis/L6899.htm">Lei 6.899/81</a>; art. 1º-F da <a href="https://www.planalto.gov.br/ccivil_03/leis/l9494.htm">Lei 9.494/97</a></td>
 </tr>
 <tr>
 <td><strong>F2</strong></td>
 <td>jul/2009 → 25/03/2015</td>
 <td><strong>IPCA-E</strong> se não expedido; <strong>TR</strong> se já expedido até 25/03/2015</td>
-<td>Lei 11.960/2009; Tema 810; ADI 4.425 QO</td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2009/lei/l11960.htm">Lei 11.960/2009</a>; Tema 810; ADI 4.425 QO</td>
 </tr>
 <tr>
 <td><strong>F3</strong></td>
@@ -390,24 +400,26 @@ O batimento contra conta oficial reproduz o índice até a 9ª casa decimal (§8
 <td><strong>F4 (Selic)</strong></td>
 <td>dez/2021 → corte EC 136</td>
 <td><strong>Selic única</strong> (engloba correção + juros; sem correção separada)</td>
-<td>art. 3º EC 113/2021</td>
+<td>art. 3º da <a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc113.htm">EC 113/2021</a></td>
 </tr>
 <tr>
 <td><strong>F5</strong></td>
 <td>pós-corte EC 136</td>
 <td>conhecimento → <strong>IPCA-15/Cód. Civil</strong>; expedido → <strong>IPCA + 2% teto Selic</strong></td>
-<td>EC 136/2025 (ver §5)</td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc136.htm">EC 136/2025</a> (ver §5)</td>
 </tr>
 </tbody>
 </table>
 <p><strong>Fronteira de virada de regime (<code>_vigente_apos_norma</code>).</strong> O índice mensal roda o <strong>mês inteiro</strong> da
 norma; o novo regime entra na <strong>competência seguinte</strong> ao corte, salvo norma vigente no dia 1º (aí vale
-já no próprio mês). Assim a Selic da EC 113 entra em <strong>jan/2022</strong> (dez/2021 fica em IPCA-E), e a
-EC 136 entra na União em <strong>out/2025</strong> (corte 10/09) e no Est/DF/Mun em <strong>ago/2025</strong> (corte 01/08, dia
-1º → já no próprio mês). Confirmado pelo <code>advogado-precatorios</code> (parecer 2026-07-14, "Achado B"),
-fundamento tríplice: art. 3º EC 113 ("acumulado mensalmente", não pro rata die), ADCT art. 116 §3º
+já no próprio mês). Assim a Selic da <a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc113.htm">EC 113</a>
+entra em <strong>jan/2022</strong> (dez/2021 fica em IPCA-E), e a
+<a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc136.htm">EC 136</a> entra na União em
+<strong>out/2025</strong> (corte 10/09) e no Est/DF/Mun em <strong>ago/2025</strong> (corte 01/08, dia 1º → já no próprio mês). O
+fundamento é tríplice: art. 3º da EC 113 ("acumulado mensalmente", não pro rata die), ADCT art. 116 §3º
 ("mês subsequente ao termo") e a própria tabela CJF (congela em jan/2022, retoma em out/2025). A
-convenção é <strong>subordinada à tabela oficial do tribunal pagador</strong>.</p>
+convenção é <strong>subordinada à tabela oficial do tribunal pagador</strong>, e foi confirmada em análise jurídica
+interna.</p>
 <h3>3.3 O congelamento 2003–2009 na Fazenda (e por que)</h3>
 <p>Na condenatória Fazenda, a correção fica <strong>congelada de fev/2003 a jun/2009</strong> — o <code>coef_naotrib</code> tem
 razão exata 1,0 por <strong>77 meses</strong> (medido, não suposto). Isso <strong>não é bug</strong>: é a metodologia do Manual.
@@ -418,12 +430,13 @@ janela a Selic entra <strong>pelos juros</strong> (item 4.2.2, p.53), não pela 
 (<code>JanelaSelicNaoCongelada</code>) que só permite a Selic aditiva quando a correção está de fato congelada,
 justamente para nunca haver dupla contagem.</p>
 <blockquote>
-<p><strong>Nota histórica (D-073):</strong> a documentação antiga do motor descrevia esta janela ao contrário — dizia
-que a tabela <em>embutia</em> a Selic na correção. A fonte primária diz o oposto; o erro real teria sido uma
-<strong>subavaliação de 57,81 pontos</strong> de juros. Corrigido pela Task 3 e registrado na D-073.</p>
+<p><strong>Nota histórica.</strong> Uma versão anterior da documentação do motor descrevia esta janela ao contrário —
+dizia que a tabela <em>embutia</em> a Selic na correção. A fonte primária diz o oposto; o erro teria
+produzido uma <strong>subavaliação de 57,81 pontos</strong> de juros. Já corrigido; a mudança está documentada
+internamente.</p>
 </blockquote>
 <h3>3.4 O trilho previdenciário (RGPS)</h3>
-<p>Regime inteiro e próprio (item 4.3), com indexadores diferentes:</p>
+<p>Regime inteiro e próprio (item 4.3 do Manual), com indexadores diferentes:</p>
 <ul>
 <li>Correção: <strong>IGP-DI</strong> (mai/1996–ago/2006) → <strong>INPC</strong> (set/2006–nov/2021) → <strong>Selic</strong> (dez/2021–ago/2025,
   embutida) → <strong>INPC</strong> (a partir de set/2025). Não usa a cadeia IPCA-E do item 4.2.</li>
@@ -433,12 +446,13 @@ que a tabela <em>embutia</em> a Selic na correção. A fonte primária diz o opo
 </ul>
 <hr />
 <h2>4. Juros de mora</h2>
-<h3>4.1 Mecânica-núcleo</h3>
+<h3>4.1 Mecânica geral</h3>
 <p>Juros de mora contra a Fazenda são <strong>simples/lineares</strong> sobre o principal corrigido —
 <strong>nunca capitalizam</strong>: <code>Juros = Valor_corrigido × (taxaₘ × nₘ)</code>, <strong>não</strong> <code>(1+taxa)ⁿ</code> (tese "juros
-simples", ancorada no texto da EC 136 e na Súmula 121/STF, citada sem o número). A Selic acumula por
-<strong>soma aritmética</strong> das taxas mensais, nunca por composição, e é <strong>proibido</strong> somar IPCA-E/TR por cima
-da Selic (bis in idem — RE 1.475.938).</p>
+simples", ancorada no texto da
+<a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc136.htm">EC 136</a> e na Súmula 121/STF,
+citada sem o número). A Selic acumula por <strong>soma aritmética</strong> das taxas mensais, nunca por composição, e
+é <strong>proibido</strong> somar IPCA-E/TR por cima da Selic (bis in idem — RE 1.475.938).</p>
 <h3>4.2 A tabela de juros por janela (item 4.2.2, pp.53–54)</h3>
 <p>Transcrição literal (<code>juros_tabela.FAIXAS</code>), condenatória geral:</p>
 <table>
@@ -455,48 +469,48 @@ da Selic (bis in idem — RE 1.475.938).</p>
 <td>até dez/2002</td>
 <td>0,5%/mês</td>
 <td>0,5%/mês</td>
-<td>CC/1916 arts. 1.062-1.064</td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/leis/l3071.htm">CC/1916</a>, arts. 1.062-1.064</td>
 </tr>
 <tr>
 <td>jan/2003 – jun/2009</td>
 <td>Selic</td>
 <td>Selic</td>
-<td>art. 406 CC</td>
+<td>art. 406 do <a href="https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm">Código Civil</a></td>
 </tr>
 <tr>
 <td>jul/2009 – abr/2012</td>
 <td>0,5%/mês</td>
 <td>Selic</td>
-<td>art. 1º-F Lei 9.494/97 (Lei 11.960/2009)</td>
+<td>art. 1º-F da <a href="https://www.planalto.gov.br/ccivil_03/leis/l9494.htm">Lei 9.494/97</a> (red. <a href="https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2009/lei/l11960.htm">Lei 11.960/2009</a>)</td>
 </tr>
 <tr>
 <td>mai/2012 – nov/2021</td>
 <td>poupança</td>
 <td>Selic</td>
-<td>idem + Lei 12.703/2012</td>
+<td>idem + <a href="https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2012/lei/l12703.htm">Lei 12.703/2012</a></td>
 </tr>
 <tr>
 <td>dez/2021 – ago/2025</td>
 <td>Selic</td>
 <td>Selic</td>
-<td>art. 3º EC 113/2021</td>
+<td>art. 3º da <a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc113.htm">EC 113/2021</a></td>
 </tr>
 <tr>
 <td>a partir de set/2025</td>
 <td>taxa legal</td>
 <td>taxa legal</td>
-<td>Tema 1.419 + art. 406 CC (Lei 14.905/2024) + Res. CMN 5.171/2024</td>
+<td>Tema 1.419 + art. 406 do <a href="https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm">Código Civil</a> (red. <a href="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2024/lei/l14905.htm">Lei 14.905/2024</a>) + <a href="https://www.bcb.gov.br/content/estabilidadefinanceira/especialnor/Resolu%C3%A7%C3%A3o5171.pdf">Res. CMN 5.171/2024</a></td>
 </tr>
 </tbody>
 </table>
 <p>A tabela previdenciária (item 4.3.2, <code>FAIXAS_PREV</code>) diverge em duas faixas: <strong>1,0%/mês simples até
-jun/2009</strong> (DL 2.322/1987) e, a partir de set/2025, <strong>taxa legal deduzindo o INPC</strong> (série diferente e
-numericamente diferente — set/2025 = <strong>1,377047%/mês</strong> no previdenciário contra <strong>1,305984%/mês</strong> no
-regime geral, quadro da p.60).</p>
+jun/2009</strong> (<a href="https://www.planalto.gov.br/ccivil_03/decreto-lei/1965-1988/del2322.htm">DL 2.322/1987</a>) e,
+a partir de set/2025, <strong>taxa legal deduzindo o INPC</strong> (série diferente e numericamente diferente —
+set/2025 = <strong>1,377047%/mês</strong> no previdenciário contra <strong>1,305984%/mês</strong> no regime geral, quadro da p.60).</p>
 <h3>4.3 As três rubricas de juros (bases distintas)</h3>
-<p>Desde o commit <code>7a78b49</code>, os juros <strong>não</strong> vivem num bucket único — são três rubricas com <strong>bases
-diferentes</strong>, espelhando a metodologia do Manual (2º Exemplo) e o split de rubricas do requisitório
-(Res. 983/2026, art. 9º, X):</p>
+<p>Os juros <strong>não</strong> formam um agregado único — são três rubricas com <strong>bases diferentes</strong>, espelhando a
+metodologia do Manual (2º Exemplo) e o split de rubricas do requisitório (art. 9º, X, da
+<a href="https://static.trf2.jus.br/nas-internet/documento/consultas/precatorios/legislacao/resolucao-983-2026.pdf">Res. CJF 983/2026</a>):</p>
 <ul>
 <li><strong>G — juros até 2021</strong> = <code>C × D%</code>, sobre o <strong>principal corrigido</strong> (C). Fase pré-Selic
   (0,5%/poupança/Selic-aditiva histórica).</li>
@@ -516,56 +530,67 @@ anterior (<code>_regra_e_competencia</code>) — <strong>apenas</strong> para as
 prova textual do lag). Nas linhas históricas "0,5%"/"selic" (Fazenda jan/2003–abr/2012; toda a
 não-Fazenda) o lag <strong>não</strong> é aplicado: a NOTA 1(b) rege essas janelas por convenção própria e diferente,
 não há oráculo numérico que prove o lag ali, e aplicá-lo colidiria com a fronteira de congelamento do
-<code>coef_naotrib</code>. Exclusão <strong>referendada</strong> pelo <code>advogado-precatorios</code> (parecer Q5). Magnitude medida do
-lag: <strong>~R$1,28–7,87</strong> por coluna no 2º Exemplo (pequena em reais, mas mensurável).</p>
+<code>coef_naotrib</code>. Exclusão referendada em análise jurídica interna. Magnitude medida do lag:
+<strong>~R$1,28–7,87</strong> por coluna no 2º Exemplo (pequena em reais, mas mensurável).</p>
 <h3>4.5 A taxa legal (art. 406 CC, pós-set/2025)</h3>
-<p>É a <strong>taxa legal já pronta do Banco Central</strong> (série SGS 29543 = Selic menos IPCA-15, Res. CMN
-5.171/2024, capitalização simples) — passe-direto, sem recálculo nosso. Bate exato (6 casas) com o
-valor literal do Manual para set/2025 (1,305984%). No previdenciário, a taxa legal <strong>deduz o INPC</strong>, não
-o IPCA-15 (p.60).</p>
+<p>É a <strong>taxa legal já pronta do Banco Central</strong> (série SGS 29543 = Selic menos IPCA-15,
+<a href="https://www.bcb.gov.br/content/estabilidadefinanceira/especialnor/Resolu%C3%A7%C3%A3o5171.pdf">Res. CMN 5.171/2024</a>,
+capitalização simples) — passe-direto, sem recálculo nosso. Bate exato (6 casas) com o valor literal do
+Manual para set/2025 (1,305984%). No previdenciário, a taxa legal <strong>deduz o INPC</strong>, não o IPCA-15 (p.60).</p>
 <h3>4.6 Juros do título (<code>juros_manuais</code>)</h3>
 <p>Quando o título executivo fixa uma taxa própria de juros por janela, ela <strong>substitui</strong> o juro legal
-naquelas janelas (<code>juros_manuais</code>). Foi por esse mecanismo que o batimento JURIS reproduziu os
-0,5%/mês do título (§8). Se uma janela manual invade o período Selic (coisa julgada × EC 113), o motor
-<strong>sinaliza</strong>.</p>
+naquelas janelas (<code>juros_manuais</code>). Foi por esse mecanismo que a comparação com a conta de mercado
+reproduziu os 0,5%/mês do título (§8). Se uma janela manual invade o período Selic (coisa julgada ×
+EC 113), o motor <strong>sinaliza</strong>.</p>
 <h3>4.7 SV 17 / período de graça</h3>
-<p>No período constitucional de pagamento (§5º do art. 100 CF), <strong>não incidem juros de mora</strong> (Súmula
-Vinculante 17; positivada pela EC 136, §3º do novo art. 3º da EC 113). Dentro da graça: <strong>juros = 0,
-correção continua</strong> (Temas 450 e 1.037). <strong>A Selic não incide na graça</strong> — só correção (IPCA-E) — Tema
-1.335 (validado na wiki) + RE 1.475.938. O corte de apresentação para a graça é <strong>por safra</strong>
-(<code>graca_corte_por_safra</code>): <strong>1º jul</strong> (até 2021) → <strong>2 abr</strong> (2022–2025, EC 114/2021) → <strong>1º fev</strong>
+<p>No período constitucional de pagamento (§5º do art. 100 da
+<a href="https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm">CF/88</a>), <strong>não incidem juros de
+mora</strong> (Súmula Vinculante 17; positivada pela
+<a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc136.htm">EC 136</a>, §3º do novo art. 3º
+da <a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc113.htm">EC 113</a>). Dentro da graça:
+<strong>juros = 0, correção continua</strong> (Temas 450 e 1.037). <strong>A Selic não incide na graça</strong> — só correção
+(IPCA-E) — Tema 1.335 (validado no acervo interno) + RE 1.475.938. O corte de apresentação para a graça
+é <strong>por safra</strong> (<code>graca_corte_por_safra</code>): <strong>1º jul</strong> (até 2021) → <strong>2 abr</strong> (2022–2025,
+<a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc114.htm">EC 114/2021</a>) → <strong>1º fev</strong>
 (2026+, EC 136). Descumprido o prazo, os juros retomam no 1º dia do exercício seguinte ao vencimento
 (RE 940.236 AgR; Rcl 13.684 AgR).</p>
 <hr />
 <h2>5. Precatório expedido (fase F5) — Res. CJF 983/2026</h2>
 <p>Quando o crédito tem <code>data_expedicao</code>, a fase pós-corte EC 136 aplica a fórmula do <strong>precatório já
-expedido</strong> (não a do conhecimento). Dispositivos: <strong>União</strong> — art. 3º, caput e §1º, da EC 113/2021 na
-redação do art. 3º da EC 136/2025; <strong>Estados/DF/Mun</strong> — ADCT art. 97, §16 e §16-A, na redação do art. 2º
-da EC 136/2025. (Não é o art. 100 §12 CF, que a EC 136 não tocou — correção da D-073.) A mecânica de
-atualização no âmbito do tribunal vem da <strong>Res. CJF 983/2026</strong>, lida na íntegra (parecer Q6).</p>
-<h3>O teto (art. 7º §3º III)</h3>
+expedido</strong> (não a do conhecimento). Dispositivos: <strong>União</strong> — art. 3º, caput e §1º, da
+<a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc113.htm">EC 113/2021</a> na redação do
+art. 3º da <a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc136.htm">EC 136/2025</a>;
+<strong>Estados/DF/Mun</strong> — ADCT art. 97, §16 e §16-A, na redação do art. 2º da EC 136/2025. (Não é o art. 100
+§12 da <a href="https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm">CF/88</a>, que a EC 136 não
+tocou.) A mecânica de atualização no âmbito do tribunal vem da
+<a href="https://static.trf2.jus.br/nas-internet/documento/consultas/precatorios/legislacao/resolucao-983-2026.pdf">Res. CJF 983/2026</a>,
+lida na íntegra.</p>
+<h3>O teto (art. 7º §3º III da Res. CJF 983/2026)</h3>
 <p>Compara <strong>duas pernas do mesmo período</strong>, prevalecendo a <strong>menor</strong>:</p>
 <ul>
 <li><strong>Perna IPCA + 2%</strong>: IPCA sobre o <strong>valor principal atualizado</strong> + juros simples de 2% a.a. <strong>só sobre
   o principal</strong>; as rubricas de juros preexistentes (G, H) permanecem <strong>nominais</strong>, somadas ao final.</li>
 <li><strong>Perna Selic (teto)</strong>: Selic simples acumulada sobre o <strong>valor consolidado</strong> (principal + juros).</li>
 </ul>
-<p><strong>Anatocismo vedado</strong> (art. 7º §4º): a Selic não capitaliza sobre os juros Selic — a rubrica H entra
-<strong>nominal</strong>, por fora da base que a Selic multiplica.</p>
+<p><strong>Anatocismo vedado</strong> (art. 7º §4º da
+<a href="https://static.trf2.jus.br/nas-internet/documento/consultas/precatorios/legislacao/resolucao-983-2026.pdf">Res. CJF 983/2026</a>):
+a Selic não capitaliza sobre os juros Selic — a rubrica H entra <strong>nominal</strong>, por fora da base que a Selic
+multiplica.</p>
 <h3>Marcos e não-retroação</h3>
 <p>As duas pernas correm <strong>do marco de entrada no regime EC 136 até a data de cálculo</strong> — <strong>não</strong> retroagem
-à expedição. Marcos mês-inclusivos (art. 1º p.u. IV): <strong>União set/2025</strong>; <strong>Est/Mun ago/2025</strong>. Os meses
-pré-EC 136 (F1..F4_Selic) entram idênticos em C/G/H nas duas pernas.</p>
+à expedição. Marcos mês-inclusivos (art. 1º p.u. IV da Res. CJF 983/2026): <strong>União set/2025</strong>;
+<strong>Est/Mun ago/2025</strong>. Os meses pré-EC 136 (F1..F4_Selic) entram idênticos em C/G/H nas duas pernas.</p>
 <h3>Graça no expedido</h3>
 <p>Correção corre sempre, inclusive na graça; os juros do §12 (regime antigo) <strong>não</strong> correm na graça
-(art. 7º §2º / SV 17). O <strong>2% a.a. da EC 136</strong> corre na graça (leitura recomendada do parecer Q6(e):
-a fórmula constitucional corre "até o efetivo pagamento" sem carve-out) — mas essa é <strong>leitura pendente</strong>
-e o motor a <strong>sinaliza</strong> (<code>f5-graca-2pct-leitura-pendente</code>) quando há mês de graça na janela.</p>
+(art. 7º §2º da Res. CJF 983/2026 / SV 17). O <strong>2% a.a. da EC 136</strong> corre na graça (leitura recomendada
+em análise jurídica interna: a fórmula constitucional corre "até o efetivo pagamento" sem carve-out) —
+mas essa é <strong>leitura pendente</strong> e o motor a <strong>sinaliza</strong> (<code>f5-graca-2pct-leitura-pendente</code>) quando há
+mês de graça na janela.</p>
 <h3>Estado desta fase — calibração SICOM pendente</h3>
-<p>A <strong>estrutura</strong> do teto está implementada e ancorada na norma (o antigo colapso, em que a Selic da F5
-era <code>0.0</code> fixo e o teto sempre vencia zerando o uplift — medido −58,8% num crédito União 2010→2026 —,
-foi eliminado; delta pós-conserto: R$20,1M → R$47,6M no mesmo crédito de referência). Mas as
-<strong>convenções operacionais</strong> (lag de competência na fase administrativa, truncamento, pro-rata) são
+<p>A <strong>estrutura</strong> do teto está implementada e ancorada na norma. A versão anterior fixava a Selic da F5 em
+<code>0.0</code>, de modo que o teto sempre prevalecia e anulava o acréscimo — medido em −58,8% num crédito União
+2010→2026; isso foi eliminado (delta pós-conserto: R$20,1M → R$47,6M no mesmo crédito de referência). Mas
+as <strong>convenções operacionais</strong> (lag de competência na fase administrativa, truncamento, pro-rata) são
 <strong>silêncio da Res. 983</strong>, que não traz exemplo numérico. Por isso <strong>toda saída de precatório expedido
 que atravessa o corte EC 136 carrega a flag <code>f5-pendente-conta-oraculo-sicom</code></strong> — fechar ao centavo
 exige um demonstrativo SICOM/TRF real de precatório atravessando set/2025 (ver §7 e §9). <strong>Não usar
@@ -577,28 +602,29 @@ como conta líquida sem esse batimento.</strong></p>
   termo inicial (NOTA 1(b), p.54 — comparação com <code>&lt;=</code>, o mês da citação não acumula juros) e incluem o
   <strong>mês da conta</strong> pela taxa ordinária da janela (NOTA 5 do item 4.1.3, <strong>p.42</strong>: "excluindo-se o mês de
   início e incluindo-se o mês da conta").</li>
-<li><strong>Mês-inclusivo em "até"/"a partir".</strong> Nos cortes da Res. 983, "até agosto/2025" inclui agosto e "a
-  partir de setembro/2025" inclui setembro (art. 1º p.u. IV) — resolve por norma expressa a semântica de
-  fronteira.</li>
-<li><strong>Precisão cheia vs. truncamento por coluna (D-073).</strong> O Manual <strong>trunca cada coluna</strong> (C, G, H, I, J,
-  L) em 2 casas antes de usá-la na próxima (p.52). O motor, por <strong>decisão de arquitetura</strong>, mantém
-  <strong>precisão cheia</strong> (float corrido, arredonda só no <code>Resultado</code>) e <strong>não</strong> trunca por coluna. Isso deixa
-  um <strong>resíduo de +R$0,26 em R$1.837,34 (0,014%)</strong> no 2º Exemplo. É deliberado, não defeito: a NOTA 6
-  (pp.49–50) permite variar o layout "desde que observada a metodologia", e a p.52 diz que diferenças de
-  centavos "são inerentes ao critério de truncamento... desprezíveis". O golden test vive com tolerância
-  única <code>TOL = 0,30</code>, documentada.</li>
+<li><strong>Mês-inclusivo em "até"/"a partir".</strong> Nos cortes da
+  <a href="https://static.trf2.jus.br/nas-internet/documento/consultas/precatorios/legislacao/resolucao-983-2026.pdf">Res. CJF 983/2026</a>,
+  "até agosto/2025" inclui agosto e "a partir de setembro/2025" inclui setembro (art. 1º p.u. IV) —
+  resolve por norma expressa a semântica de fronteira.</li>
+<li><strong>Precisão cheia vs. truncamento por coluna.</strong> O Manual <strong>trunca cada coluna</strong> (C, G, H, I, J, L) em 2
+  casas antes de usá-la na próxima (p.52). O motor, por <strong>decisão metodológica adotada neste motor
+  (documentada internamente)</strong>, mantém <strong>precisão cheia</strong> (float corrido, arredonda só no <code>Resultado</code>) e
+  <strong>não</strong> trunca por coluna. Isso deixa um <strong>resíduo de +R$0,26 em R$1.837,34 (0,014%)</strong> no 2º Exemplo. É
+  deliberado, não defeito: a NOTA 6 (pp.49–50) permite variar o layout "desde que observada a
+  metodologia", e a p.52 diz que diferenças de centavos "são inerentes ao critério de truncamento...
+  desprezíveis". O teste de referência usa tolerância única de R$ 0,30, documentada.</li>
 <li><strong>"+1% no mês do pagamento" NÃO se aplica a valor de face.</strong> A NOTA 1(b) só manda somar +1% no mês do
   pagamento para devedor <strong>não-Fazenda</strong> ou <strong>Fazenda em jan/2003–jun/2009</strong> — e o fato-gatilho é o
-  <strong>pagamento real</strong>. Numa mera atualização (valor de face em data de corte, o caso de uso sob D-059) o
-  mês final é o <strong>"mês da conta"</strong>, incluído pela taxa ordinária, sem acréscimo substitutivo. O motor
-  nunca aplica o +1% (nenhum chamador passa <code>mes_pagamento</code>), e isso está <strong>materialmente correto</strong>
-  (parecer Q3). Prova aritmética: os oráculos Selic da EC 113 batem exatos <strong>sem</strong> o +1% (43,89% /
-  42,39%). O +1% só entraria num futuro modo "conta de liquidação" com <code>data_pagamento</code> explícita.</li>
+  <strong>pagamento real</strong>. Numa mera atualização (valor de face em data de corte) o mês final é o <strong>"mês da
+  conta"</strong>, incluído pela taxa ordinária, sem acréscimo substitutivo. O motor nunca aplica o +1% (nenhum
+  chamador passa <code>mes_pagamento</code>), e isso está <strong>materialmente correto</strong> (confirmado em análise jurídica
+  interna). Prova aritmética: os oráculos Selic da EC 113 batem exatos <strong>sem</strong> o +1% (43,89% / 42,39%). O
+  +1% só entraria num futuro modo "conta de liquidação" com <code>data_pagamento</code> explícita.</li>
 </ul>
 <hr />
 <h2>7. O que o motor recusa ou sinaliza</h2>
-<p>O princípio (D-073): <strong>afirmação sem fonte primária não vira número quieto — vira recusa ou flag.</strong>
-Número <strong>sinalizado</strong> não é número <strong>validado</strong>.</p>
+<p>O princípio: <strong>afirmação sem fonte primária não é entregue como número silencioso — vira recusa ou
+sinalização.</strong> Número <strong>sinalizado</strong> não é número <strong>validado</strong>.</p>
 <h3>7.1 Recusas (o motor levanta exceção, não devolve número)</h3>
 <table>
 <thead>
@@ -617,7 +643,7 @@ Número <strong>sinalizado</strong> não é número <strong>validado</strong>.</
 <tr>
 <td><code>NaturezaServidorNaoImplementada</code></td>
 <td>crédito de <strong>servidor</strong> (<code>NaturezaVerba.SERVIDOR</code>) que toca a janela contaminada — juros pré-jul/2009 <strong>ou</strong> correção fev/2003–jun/2009</td>
-<td>o Manual tem tabela própria de servidor (1%/mês até jul/2001, 0,5%/mês até jun/2009, <strong>sem</strong> Selic — NOTA 3 do 4.2.2, p.54) que o motor não implementa; na janela o motor erraria dois componentes em sentidos opostos (Selic onde caberia 0,5%; correção congelada onde deveria correr) — resultado não confiável em qualquer direção (parecer Q1(b))</td>
+<td>o Manual tem tabela própria de servidor (1%/mês até jul/2001, 0,5%/mês até jun/2009, <strong>sem</strong> Selic — NOTA 3 do 4.2.2, p.54) que o motor não implementa; na janela o motor erraria dois componentes em sentidos opostos (Selic onde caberia 0,5%; correção congelada onde deveria correr) — resultado não confiável em qualquer direção</td>
 </tr>
 <tr>
 <td><code>PrevidenciarioAnteriorA1996</code></td>
@@ -680,7 +706,7 @@ Número <strong>sinalizado</strong> não é número <strong>validado</strong>.</
 <tr>
 <td><code>nota-1bc-poupanca</code></td>
 <td>a linha "poupança" (mai/2012–nov/2021) foi de fato consumida — convenção de lag identificada por ajuste único</td>
-<td>referendo formal (já referendado no parecer Q4/Q5)</td>
+<td>referendo formal (já referendado em análise jurídica interna)</td>
 </tr>
 <tr>
 <td><code>fronteira-termo-inicial-*</code></td>
@@ -707,88 +733,117 @@ Número <strong>sinalizado</strong> não é número <strong>validado</strong>.</
 <hr />
 <h2>8. Validações</h2>
 <ul>
-<li><strong>Batimento JURIS (conta de mercado real).</strong> JURIS CÁLCULOS do Pedra Azul FIDC (proc.
+<li><strong>Batimento contra conta de mercado real.</strong> JURIS CÁLCULOS do Pedra Azul FIDC (proc.
   0003580-77.2008.4.01.3400): crédito de <strong>R$ 381 milhões</strong>, correção IPCA-E (F1–F3), fronteira EC 113,
   juros de mora do título (0,5%/mês via <code>juros_manuais</code>) e honorário de 10% — reproduzido <strong>até o
-  centavo</strong>, diferença máxima <strong>R$ 0,04</strong> (<code>test_batimento_oficial</code>). Ainda <strong>não</strong> cobre Selic-soma
-  (F4), tributário nem F5/EC 136 — falta conta que cruze essas fases.</li>
-<li><strong>2º Exemplo do Manual CJF (oráculo oficial).</strong> Golden test coluna a coluna (C/G/H/I/J/L) contra o
-  exemplo trabalhado do Manual, tolerância <strong>TOL = 0,30</strong> documentada (resíduo medido +R$0,26). Trava a
-  metodologia multifásica (F3 poupança → F4 Selic EC 113 → fase nova taxa legal).</li>
+  centavo</strong>, diferença máxima <strong>R$ 0,04</strong>. Ainda <strong>não</strong> cobre Selic-soma (F4), tributário nem
+  F5/EC 136 — falta conta que cruze essas fases.</li>
+<li><strong>2º Exemplo do Manual CJF (oráculo oficial).</strong> Teste de referência coluna a coluna (C/G/H/I/J/L)
+  contra o exemplo trabalhado do Manual, tolerância <strong>R$ 0,30</strong> documentada (resíduo medido +R$0,26).
+  Cobre a metodologia multifásica (F3 poupança → F4 Selic EC 113 → fase nova taxa legal).</li>
 <li><strong>Oráculos D/E/F.</strong> Os três percentuais do 2º Exemplo reproduzem exatos via cálculo real:
   <strong>D = 2,4568%</strong> (poupança), <strong>E = 43,8900%</strong> (Selic EC 113), <strong>F = 7,0396%</strong> (taxa legal) — prova
   aritmética do lag de competência e da ausência do +1%.</li>
-<li><strong>Suíte de testes.</strong> <strong>213 testes</strong> (212 passam, 1 <code>xfailed</code>). O único <code>xfailed</code> é o cenário
-  end-to-end do 2º Exemplo (linha inteira), marcador da ambição de "bater ao centavo" — resíduo de
-  truncamento por coluna (§6), não defeito de metodologia.</li>
+<li><strong>Bateria de testes automatizados.</strong> O motor é validado por <strong>213 casos</strong> de teste automatizados,
+  incluindo a reprodução da conta de mercado de R$ 381 milhões acima (diferença máxima R$ 0,04). O único
+  caso em aberto é o cenário end-to-end do 2º Exemplo (linha inteira C/G/H/I/J/L), afetado apenas pelo
+  resíduo de truncamento por coluna descrito no §6 — não por erro de metodologia.</li>
 </ul>
 <hr />
-<h2>9. Fontes primárias</h2>
-<p>Todas no acervo, verificadas verbatim antes de citadas (método D-073):</p>
+<h2>9. Fontes primárias (com link para o texto oficial)</h2>
+<p>Todas verificadas no texto oficial antes de citadas.</p>
 <table>
 <thead>
 <tr>
 <th>Fonte</th>
-<th>Localização</th>
+<th>Onde conferir (texto oficial)</th>
 <th>Papel</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Manual de Cálculos da Justiça Federal, Res. CJF 990/2026</strong></td>
-<td><code>01_LEGAL/precatorios/raw/manuais-calculo/[CJF] manual-de-calculos-res-990-2026.pdf</code></td>
+<td><a href="https://sicom.cjf.jus.br/arquivos/pdf/manual_de_calculos_2026.pdf">PDF no SICOM/CJF</a></td>
 <td>metodologia da fase de liquidação/conhecimento (itens 4.1–4.7)</td>
 </tr>
 <tr>
 <td><strong>Res. CJF 983/2026</strong></td>
-<td><code>01_LEGAL/precatorios/raw/cjf-normativos/[CJF] resolucao-983-2026-atualizacao-precatorios-rpv.pdf</code></td>
+<td><a href="https://static.trf2.jus.br/nas-internet/documento/consultas/precatorios/legislacao/resolucao-983-2026.pdf">PDF (reprodução TRF2)</a></td>
 <td>atualização do precatório já expedido (fase F5, teto EC 136)</td>
 </tr>
 <tr>
-<td><strong>EC 113/2021 e EC 136/2025</strong></td>
-<td><code>01_LEGAL/precatorios/raw/constitucional/</code></td>
-<td>Selic única (EC 113); IPCA+2% teto Selic e cortes (EC 136)</td>
+<td><strong>EC 113/2021</strong></td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc113.htm">Planalto</a></td>
+<td>Selic única</td>
+</tr>
+<tr>
+<td><strong>EC 136/2025</strong></td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc136.htm">Planalto</a></td>
+<td>IPCA+2% teto Selic e cortes</td>
+</tr>
+<tr>
+<td><strong>CF/88 (art. 100, ADCT)</strong></td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm">Planalto</a></td>
+<td>regime dos precatórios, graça (§5º), ADCT art. 97</td>
+</tr>
+<tr>
+<td><strong>Código Civil (Lei 10.406/2002)</strong></td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm">Planalto</a></td>
+<td>termo inicial (art. 405) e taxa legal (art. 406)</td>
+</tr>
+<tr>
+<td><strong>Lei 14.905/2024</strong></td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2024/lei/l14905.htm">Planalto</a></td>
+<td>nova redação do art. 406 CC (taxa legal)</td>
+</tr>
+<tr>
+<td><strong>Res. CMN 5.171/2024</strong></td>
+<td><a href="https://www.bcb.gov.br/content/estabilidadefinanceira/especialnor/Resolu%C3%A7%C3%A3o5171.pdf">PDF no BCB</a></td>
+<td>metodologia da taxa legal (Selic − IPCA-15)</td>
+</tr>
+<tr>
+<td><strong>Lei 11.960/2009 / Lei 9.494/97</strong></td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2009/lei/l11960.htm">Lei 11.960</a> · <a href="https://www.planalto.gov.br/ccivil_03/leis/l9494.htm">Lei 9.494</a></td>
+<td>art. 1º-F (TR/poupança na fase intermediária)</td>
+</tr>
+<tr>
+<td><strong>Lei 9.250/1995 (art. 39 §4º)</strong></td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/leis/l9250.htm">Planalto</a></td>
+<td>Selic no crédito tributário</td>
+</tr>
+<tr>
+<td><strong>DL 2.322/1987</strong></td>
+<td><a href="https://www.planalto.gov.br/ccivil_03/decreto-lei/1965-1988/del2322.htm">Planalto</a></td>
+<td>juros de 1%/mês no previdenciário até jun/2009</td>
 </tr>
 <tr>
 <td><strong>Coeficiente CJF condenatória Fazenda</strong></td>
-<td><code>_sistema/ferramentas/indices/base/coef_correcao_naotrib.csv</code> (origem em <code>base/cjf/_fonte/</code>)</td>
-<td>espinha da correção (742 competências, expurgos embutidos)</td>
+<td>tabela oficial SICOM/CJF (742 competências, expurgos embutidos)</td>
+<td>tabela-base da correção monetária</td>
 </tr>
 <tr>
 <td><strong>Séries vivas BCB/SGS</strong></td>
-<td><code>base/sgs/*.json</code> (Selic 4390, taxa legal 29543, poupança 196, INPC 188, IGP-DI 190, meta Selic 432)</td>
+<td>Banco Central — SGS (Selic 4390, taxa legal 29543, poupança 196, INPC 188, IGP-DI 190, meta Selic 432)</td>
 <td>juros vivos</td>
 </tr>
 <tr>
 <td><strong>Tabelas Práticas TJSP/DEPRE</strong></td>
-<td><code>01_LEGAL/precatorios/raw/tribunais/tjsp/</code></td>
+<td><a href="https://www.tjsp.jus.br/Precatorios/Precatorios/Tabelas">TJSP — Precatórios/Tabelas</a></td>
 <td>referência para futuro trilho estadual (não consumida hoje)</td>
-</tr>
-<tr>
-<td><strong>Pareceres <code>advogado-precatorios</code></strong></td>
-<td><code>_sistema/ferramentas/indices/pareceres/2026-07-15-parecer-pendencias-1.1.md</code> (Q1–Q5) e <code>2026-07-15-parecer-res983-f5.md</code> (Q6)</td>
-<td>validação jurídico-metodológica</td>
-</tr>
-<tr>
-<td><strong>Metodologia canônica / D-073</strong></td>
-<td><code>_sistema/arquitetura/specs/2026-07-13-metodologia-correcao-precatorio.md</code>; <code>_sistema/arquitetura/decisoes.md</code> (D-072/D-073)</td>
-<td>especificação e decisões</td>
-</tr>
-<tr>
-<td><strong>Pendências (com passo a passo de download das tabelas)</strong></td>
-<td><code>_sistema/ferramentas/indices/PENDENCIAS.md</code></td>
-<td>estado aberto do projeto</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Jurisprudência citada sem o número</strong> (validação automatizada bloqueada — SCON/portal STF retornam
-HTTP 403): Súmulas 54, 204 e Tema 905 do STJ, e Súmula 121/STF. As teses têm âncora normativa
-alternativa (CC 405, CPC 240, texto da EC 136). Os precedentes do STF ligados à SV 17/graça (Temas
-1.335/1.037/810/96/450, ADI 4.425 QO, RE 1.475.938, ARE 1.443.512) estão validados na wiki.</p>
+<p>A validação jurídico-metodológica das regras acima foi feita em análise jurídica interna, sempre
+ancorada nas fontes primárias linkadas nesta tabela.</p>
+<p><strong>Jurisprudência citada sem o número</strong> (validação automatizada bloqueada — os portais SCON/STJ e STF
+retornam HTTP 403 a acesso automatizado): Súmulas 54, 204 e Tema 905 do STJ, e Súmula 121/STF. As teses
+têm âncora normativa alternativa (art. 405 CC, art. 240 CPC, texto da EC 136). Os precedentes do STF
+ligados à SV 17/graça (Temas 1.335/1.037/810/96/450, ADI 4.425 QO, RE 1.475.938, ARE 1.443.512) estão
+validados no acervo de jurisprudência interno.</p>
 <hr />
 <p><em>Documento vivo, mantido junto com o motor. Toda regra citada está ancorada em fonte primária já
-verificada; onde o motor recusa ou sinaliza, o manual diz que recusa/sinaliza e por quê. Sob D-059/D-051
-(o motor não precifica).</em></p></div>
+verificada; onde o motor recusa ou sinaliza, o manual diz que recusa/sinaliza e por quê. O motor não
+precifica.</em></p></div>
     </div>
   </div>
 
