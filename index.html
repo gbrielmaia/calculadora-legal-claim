@@ -199,6 +199,14 @@
             <div class="field"><label>Inadimplente?<span class="help" title="Override: quando marcado, os juros NÃO zeram no período de graça.">i</span></label>
               <span class="checkfield"><input type="checkbox" id="inInadimplente" onchange="calcular()"></span></div>
           </details>
+
+          <details id="detHonorario">
+            <summary>Honorários (fase 2)</summary>
+            <div class="field"><label>Honorários<span class="help" title="Percentual de honorário advocatício (fase 2, correcao.honorario) sobre o resultado da fase 1 (o crédito). Vazio = não calcula.">i</span></label>
+              <span><input type="number" id="inHonorarioPct" step="0.01" min="0" placeholder="—" oninput="calcular()"><span class="suffix">%</span></span></div>
+            <div class="field"><label>Base do honorário<span class="help" title="Total = principal+correção+juros (valor_corrigido_hoje). Principal = principal+correção, exclui os juros de mora (sobre='principal').">i</span></label>
+              <span><select id="inHonorarioBase" onchange="calcular()"><option value="total" selected>Total da execução</option><option value="principal">Principal + correção</option></select></span></div>
+          </details>
         </div>
       </div>
 
@@ -216,6 +224,9 @@
               <div class="k">Valor de face na data do cálculo</div>
               <div class="v" id="rValorHoje">—</div>
             </div>
+            <div class="btnrow noprint">
+              <button class="btn" id="btnSimulador" onclick="abrirSimulador()">Levar ao simulador →</button>
+            </div>
             <div class="decomp">
               <div class="res"><span class="k">Principal original (A)</span><span class="v" id="rPrincipal">—</span></div>
               <div class="res"><span class="k">Correção monetária</span><span class="v" id="rCorrecao">—</span></div>
@@ -224,6 +235,8 @@
               <div class="res"><span class="k">Juros Selic — EC113 (H)<span class="help" title="(C+G) × E%, sobre principal corrigido + juros já acumulados.">i</span></span><span class="v" id="rJurosSelic">—</span></div>
               <div class="res"><span class="k">Juros fase nova (I)<span class="help" title="C × F%: taxa legal no conhecimento, ou 2% a.a. no precatório expedido.">i</span></span><span class="v" id="rJurosFaseNova">—</span></div>
               <div class="res"><span class="k">Ajuste teto EC136<span class="help" title="Pode ser negativo. Teto do precatório já expedido (Selic×consolidado vs IPCA+2%), não é 'juros normais'. Sempre exibido, mesmo quando zero.">i</span></span><span class="v" id="rAjusteTeto">—</span></div>
+              <div class="res hide" id="rowHonorario"><span class="k">Honorários (<span id="rHonorarioPct">—</span>%)<span class="help" title="Fase 2 (correcao.honorario): percentual sobre a base escolhida, calculado à parte do valor de face.">i</span></span><span class="v" id="rHonorarioValor">—</span></div>
+              <div class="res tot hide" id="rowTotalHonorario"><span class="k">Total com honorários</span><span class="v" id="rTotalComHonorarios">—</span></div>
             </div>
           </div>
 
@@ -1600,6 +1613,25 @@ function corrigir(cr, base, cfg) {
   };
 }
 
+// ============================================================ correcao.py -- honorario() (Fase 2)
+// Python: def honorario(percentual, *resultados, sobre="total") -> Honorario.
+// Porte JS: honorario(percentual, resultados, sobre) -- `resultados` e' um ARRAY (equivalente ao
+// *resultados variadico do Python) porque JS nao tem args-variadicos-antes-de-keyword-only limpo;
+// `sobre` e' o 3o parametro posicional, default "total" (mesma semantica: "total" = valor_corrigido_hoje
+// completo: principal+correcao+juros; "principal" = principal+correcao, exclui os juros de mora).
+// Mesma ordem de operacoes do Python: soma reduz da esquerda sobre `resultados` (ordem do array),
+// SO' entao arredonda a base (pyRound 2 casas) e multiplica pelo percentual (tambem pyRound 2 casas).
+function honorario(percentual, resultados, sobre) {
+  if (sobre === undefined) sobre = "total";
+  const parcela = function (r) {
+    return sobre === "principal" ? r.principal + r.correcao : r.valor_corrigido_hoje;
+  };
+  let soma = 0.0;
+  for (let i = 0; i < resultados.length; i++) soma += parcela(resultados[i]);
+  const base = pyRound(soma, 2);
+  return { base: base, percentual: percentual, valor: pyRound(base * percentual, 2) };
+}
+
 // ============================================================ export (node + browser)
 const API = {
   pyRound,
@@ -1612,7 +1644,7 @@ const API = {
   taxa_juros_mes, taxa_juros_mes_efetiva, selic_soma, aplica_teto_ec136, em_graca,
   juros_manual_no_mes, flags_natureza_verba, flags_previdenciario, flags_variante_tabela,
   flags_regra_juros, _regra_e_competencia, _f5_expedido, _f5_selic_residual, _f5_expedido_selic_residual,
-  _regra_ativa, _termo_inicial_comp, _PRIMEIRO_MES, _EC136_2PCT, corrigir,
+  _regra_ativa, _termo_inicial_comp, _PRIMEIRO_MES, _EC136_2PCT, corrigir, honorario,
 };
 if (typeof module !== "undefined" && module.exports) module.exports = API;
 if (typeof window !== "undefined") window.CalcEngine = API;
@@ -1780,8 +1812,19 @@ function calcular(){
 
   elErro.classList.add('hide');
   elResultado.classList.remove('hide');
-  renderResultado(cr, res);
-  ULTIMO = {cr:cr, res:res};
+  const hon = renderResultado(cr, res);
+  ULTIMO = {cr:cr, res:res, hon:hon};
+}
+
+// Fase 2 (F1): honorário advocatício sobre o Resultado da fase 1. Vazio/zero/inválido no campo
+// "Honorários (%)" => não calcula (retorna null e as linhas de honorário ficam ocultas).
+function calcularHonorario(res){
+  const pctStr = $('inHonorarioPct').value;
+  if (pctStr === '') return null;
+  const pct = parseFloat(pctStr);
+  if (!(pct > 0)) return null;
+  const sobre = $('inHonorarioBase').value;
+  return CalcEngine.honorario(pct / 100, [res], sobre);
 }
 
 function renderResultado(cr, res){
@@ -1793,6 +1836,18 @@ function renderResultado(cr, res){
   $('rJurosSelic').textContent = fmtBRL(res.juros_selic);
   $('rJurosFaseNova').textContent = fmtBRL(res.juros_fase_nova);
   $('rAjusteTeto').textContent = fmtBRL(res.ajuste_teto_ec136);
+
+  const hon = calcularHonorario(res);
+  if (hon){
+    $('rowHonorario').classList.remove('hide');
+    $('rowTotalHonorario').classList.remove('hide');
+    $('rHonorarioPct').textContent = $('inHonorarioPct').value.replace('.', ',');
+    $('rHonorarioValor').textContent = fmtBRL(hon.valor);
+    $('rTotalComHonorarios').textContent = fmtBRL(res.valor_corrigido_hoje + hon.valor);
+  } else {
+    $('rowHonorario').classList.add('hide');
+    $('rowTotalHonorario').classList.add('hide');
+  }
 
   const box = $('flagsBox');
   box.innerHTML = '';
@@ -1822,6 +1877,15 @@ function renderResultado(cr, res){
       '<td>' + m.base_legal + '</td>';
     tbody.appendChild(tr);
   });
+  return hon;
+}
+
+// ---------------------------------------------------------------- F2: levar ao simulador
+function abrirSimulador(){
+  if (!ULTIMO){ toast('Calcule um crédito antes.'); return; }
+  const vf = ULTIMO.res.valor_corrigido_hoje;
+  const url = 'https://gbrielmaia.github.io/simulador-precatorio/?vf=' + encodeURIComponent(vf) + '&origem=calculadora';
+  window.open(url, '_blank', 'noopener');
 }
 
 // ---------------------------------------------------------------- export
@@ -1842,6 +1906,11 @@ function copiarResumo(){
   linhas.push('Juros Selic (EC113): ' + fmtBRL(res.juros_selic));
   linhas.push('Juros fase nova: ' + fmtBRL(res.juros_fase_nova));
   linhas.push('Ajuste teto EC136: ' + fmtBRL(res.ajuste_teto_ec136));
+  if (ULTIMO.hon){
+    const baseLbl = $('inHonorarioBase').value === 'principal' ? 'principal + correção' : 'total da execução';
+    linhas.push('Honorários (' + $('inHonorarioPct').value.replace('.', ',') + '%, base: ' + baseLbl + '): ' + fmtBRL(ULTIMO.hon.valor));
+    linhas.push('TOTAL COM HONORÁRIOS: ' + fmtBRL(res.valor_corrigido_hoje + ULTIMO.hon.valor));
+  }
   linhas.push('');
   if (res.flags_pendentes.length){
     linhas.push('SINALIZAÇÕES PENDENTES:');
@@ -1878,6 +1947,13 @@ function baixarMemoriaCsv(){
       m.base_legal
     ].join(';'));
   });
+  if (ULTIMO.hon){
+    linhas.push('');
+    linhas.push('honorarios_pct;' + $('inHonorarioPct').value.replace('.', ','));
+    linhas.push('honorarios_base;' + $('inHonorarioBase').value);
+    linhas.push('honorarios_valor;' + String(ULTIMO.hon.valor).replace('.', ','));
+    linhas.push('total_com_honorarios;' + String(res.valor_corrigido_hoje + ULTIMO.hon.valor).replace('.', ','));
+  }
   const blob = new Blob(['﻿' + linhas.join('\r\n')], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
