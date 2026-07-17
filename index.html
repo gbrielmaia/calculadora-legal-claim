@@ -146,12 +146,23 @@
   table.jmtab th, table.memtab th { font-size:9px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-mute); text-align:right; padding:4px 5px; border-bottom:1px solid var(--rule); font-weight:600; }
   table.jmtab th:first-child, table.jmtab td:first-child, table.memtab th:first-child, table.memtab td:first-child { text-align:left; }
   table.jmtab td, table.memtab td { text-align:right; padding:4px 5px; border-bottom:1px dotted var(--rule); color:var(--ink-soft); }
-  /* memoria descritiva: rubrica em destaque + linhas de EVENTO (marcos) com estilo proprio */
+  /* memoria descritiva: rubrica em destaque + linhas de EVENTO (marcos) com estilo proprio.
+     tr.evrow (linha dedicada com colspan) e' usada SO no relatorio PDF/impressao (rel-memtab,
+     montada a parte por prepararRelatorioParaImpressao() -- ver JS); na TELA os eventos viram a
+     coluna "Observacoes" (td.obscell) na propria linha do mes -- ver regras abaixo. */
   table.memtab td.rubcell { font-size:9.5px; color:var(--gold-deep); font-weight:600; }
   table.memtab tr.evrow td { text-align:left; background:var(--accent-bg); color:var(--ink-2); border-bottom:1px solid var(--rule); font-family:'Inter',sans-serif; font-size:10.5px; line-height:1.55; padding:7px 9px; white-space:normal; border-left:3px solid var(--gold); }
   table.memtab tr.evrow .evmark { display:inline-block; color:var(--gold-deep); font-weight:700; text-transform:uppercase; letter-spacing:.05em; font-size:8.5px; margin-right:7px; font-family:'Inter',sans-serif; }
   table.memtab tr.evrow .evtxt + .evtxt { display:block; margin-top:4px; }
+  /* coluna "Observacoes" (tela): min-width generoso p/ o texto do evento, quebra dentro da celula;
+     o card (div.memtab-scroll) e' quem rola horizontal, nao a celula nem o body. */
+  table.memtab th.obshead { text-align:left; }
+  table.memtab td.obscell { text-align:left; white-space:normal; vertical-align:top; min-width:380px; max-width:480px; line-height:1.5; color:var(--ink-soft); }
+  table.memtab td.obscell.tem-evento { background:var(--accent-bg); color:var(--ink-2); border-left:3px solid var(--gold); font-family:'Inter',sans-serif; font-size:10.5px; padding:7px 9px; }
+  table.memtab td.obscell .evmark { display:inline-block; color:var(--gold-deep); font-weight:700; text-transform:uppercase; letter-spacing:.05em; font-size:8.5px; margin-right:6px; font-family:'Inter',sans-serif; }
+  table.memtab td.obscell .evtxt + .evtxt { display:block; margin-top:4px; }
   .memhint { font-family:'Inter',sans-serif; font-size:11px; line-height:1.5; color:var(--ink-soft); margin:8px 0 2px; }
+  .memtab-scroll { overflow-x:auto; }
   table.jmtab input, table.jmtab select { font-size:10.5px; padding:3px 4px; }
   table.jmtab input[type=date] { width:112px; } table.jmtab input[type=number] { width:70px; }
   .btn { font-size:11px; padding:5px 11px; border:1px solid var(--rule-strong); background:#fff; cursor:pointer; color:var(--ink-soft); font-family:'Inter',sans-serif; }
@@ -410,22 +421,6 @@
             <div id="flagsBox" class="flagsbox"></div>
           </div>
 
-          <div class="panel">
-            <h2 class="sec">Memória de cálculo</h2>
-            <details id="memoriaDetails">
-              <summary>Ver memória de cálculo completa (<span id="memoriaCount">0</span> competências)</summary>
-              <p class="memhint">Cada linha mostra a <strong>base de correção × fator → C corrigido</strong> e a <strong>base de juros × taxa → juros do mês</strong>, com a rubrica (G até 2021 · H Selic EC113 · I fase nova/EC136 · manual). As <strong>linhas destacadas</strong> são marcos: início do cálculo, início dos juros, expedição do precatório, fronteira EC 113, corte EC 136, teto, graça e trocas de tabela.</p>
-              <div style="overflow-x:auto"><table class="memtab">
-                <thead><tr>
-                  <th>Competência</th><th>Regime</th><th>Índice</th>
-                  <th>Base corr.</th><th>Fator</th><th>Correção mês</th><th>C corrigido</th>
-                  <th>Base juros</th><th>Taxa/Selic</th><th>Juros mês</th><th>Rubrica</th>
-                </tr></thead>
-                <tbody id="memoriaBody"></tbody>
-              </table></div>
-            </details>
-          </div>
-
           <div class="panel noprint">
             <h2 class="sec">Exportar</h2>
             <div class="btnrow">
@@ -437,6 +432,24 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Memória de cálculo: por ultimo, largura cheia (mesma largura do header/wrap) -- pedido do
+         Gabriel (2026-07-17): o quadro nao fica mais espremido na coluna direita do grid. -->
+    <div class="panel" id="painelMemoria" style="margin-top:22px;">
+      <h2 class="sec">Memória de cálculo</h2>
+      <details id="memoriaDetails">
+        <summary>Ver memória de cálculo completa (<span id="memoriaCount">0</span> competências)</summary>
+        <p class="memhint">Cada linha mostra a <strong>base de correção × fator → C corrigido</strong> e a <strong>base de juros × taxa → juros do mês</strong>, com a rubrica (G até 2021 · H Selic EC113 · I fase nova/EC136 · manual) e, quando houver, a <strong>observação</strong> do(s) marco(s) daquela competência (início do cálculo, início dos juros, expedição do precatório, fronteira EC 113, corte EC 136, teto, graça, trocas de tabela) — role o quadro para a direita para ler a observação completa.</p>
+        <div class="memtab-scroll"><table class="memtab">
+          <thead><tr>
+            <th>Competência</th><th>Regime</th><th>Índice</th>
+            <th>Base corr.</th><th>Fator</th><th>Correção mês</th><th>C corrigido</th>
+            <th>Base juros</th><th>Taxa/Selic</th><th>Juros mês</th><th>Rubrica</th><th class="obshead">Observações</th>
+          </tr></thead>
+          <tbody id="memoriaBody"></tbody>
+        </table></div>
+      </details>
     </div>
   </div>
 
@@ -782,6 +795,21 @@ não-Fazenda) o lag <strong>não</strong> é aplicado: a NOTA 1(b) rege essas ja
 não há oráculo numérico que prove o lag ali, e aplicá-lo colidiria com a fronteira de congelamento do
 <code>coef_naotrib</code>. Exclusão referendada em análise jurídica interna. Magnitude medida do lag:
 <strong>~R$1,28–7,87</strong> por coluna no 2º Exemplo (pequena em reais, mas mensurável).</p>
+<blockquote>
+<p><strong>Fronteira "termo == data-base" (Q10, 2026-07-17).</strong> O lag de competência (a Selic de M-1 aplicada
+em M) <strong>não</strong> dispensa a exclusão do mês do termo inicial dos juros (NOTA 5 do item 4.1.3, p.42 —
+regra geral de contagem, que atravessa a Selic única da EC 113/tributário). Quando o termo inicial
+dos juros coincide com a própria data-base da correção (situação padrão do precatório cujo Ofício
+Requisitório já consolidou os juros até a data-base), o mês da competência-base é <strong>excluído</strong> da
+acumulação da Selic — não basta a Selic estar "lagada", o mês de aplicação também precisa ser
+posterior ao termo. <code>valor_corrigido_hoje == valor_historico</code> nessa fronteira (correção 0, juros 0).
+O motor tinha um defeito isolado nesse ponto (o guard <code>c &gt; _termo_c</code> faltava na comprehension de
+<code>comps_selic</code> do laço principal, <code>correcao.py</code> ~L1632-1636/<code>engine.js</code> ~L1260-1268 — presente em
+ambos os outros dois caminhos que alimentam a Selic), corrigido e provado ao centavo contra 6
+oráculos oficiais do TJSP (carteira Lopes). Ver
+<code>_sistema/ferramentas/indices/pareceres/parecer_q10_fronteira_termo_database.md</code> e
+<code>02_CASOS/precatorios/lopes/diagnostico_fronteira_termo_database.md</code>.</p>
+</blockquote>
 <h3>4.5 A taxa legal (art. 406 CC, pós-set/2025)</h3>
 <p>É a <strong>taxa legal já pronta do Banco Central</strong> (série SGS 29543 = Selic menos IPCA-15,
 <a href="https://www.bcb.gov.br/content/estabilidadefinanceira/especialnor/Resolu%C3%A7%C3%A3o5171.pdf">Res. CMN 5.171/2024</a>,
@@ -3186,6 +3214,14 @@ function renderResultado(cr, res){
   let html = '';
   res.memoria.forEach(function(m){
     const taxaPct = (m.taxa_juros_mes*100).toFixed(4) + '%';
+    const temEvento = m.eventos && m.eventos.length;
+    // coluna "Observacoes" (tela): eventos da propria competencia, na linha do mes -- em vez da
+    // linha dedicada com colspan usada no relatorio PDF (rel-memtab, JS a parte). Mes sem evento
+    // = celula vazia.
+    const obsHtml = temEvento
+      ? '<span class="evmark">◆ marco</span>' +
+        m.eventos.map(function(e){ return '<span class="evtxt">' + escapeHtml(e) + '</span>'; }).join('')
+      : '';
     // linha de dados: base de correcao x fator -> C corrigido; base de juros x taxa -> juros do mes
     html +=
       '<tr>' +
@@ -3200,13 +3236,8 @@ function renderResultado(cr, res){
       '<td>' + taxaPct + '</td>' +
       '<td>' + (m.juros_do_mes ? fmtBRL(m.juros_do_mes) : '—') + '</td>' +
       '<td class="rubcell">' + (m.rubrica_juros||'') + '</td>' +
+      '<td class="obscell' + (temEvento ? ' tem-evento' : '') + '">' + obsHtml + '</td>' +
       '</tr>';
-    // linha(s) de EVENTO (marcos) -- destacada, span total
-    if (m.eventos && m.eventos.length){
-      html += '<tr class="evrow"><td colspan="11"><span class="evmark">◆ marco ' + m.competencia + '</span>' +
-        m.eventos.map(function(e){ return '<span class="evtxt">' + escapeHtml(e) + '</span>'; }).join('') +
-        '</td></tr>';
-    }
   });
   tbody.innerHTML = html;
   return hon;
