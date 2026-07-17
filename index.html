@@ -146,6 +146,13 @@
   table.jmtab th, table.memtab th { font-size:9px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-mute); text-align:right; padding:4px 5px; border-bottom:1px solid var(--rule); font-weight:600; }
   table.jmtab th:first-child, table.jmtab td:first-child, table.memtab th:first-child, table.memtab td:first-child { text-align:left; }
   table.jmtab td, table.memtab td { text-align:right; padding:4px 5px; border-bottom:1px dotted var(--rule); color:var(--ink-soft); }
+  /* colunas de valor (competencia/regime/indice/base/fator/correcao/juros/rubrica) nunca quebram --
+     "R$ 1.234.567,89" tem espaco depois do "R$" e por padrao o navegador quebra ali; com nowrap a
+     largura da coluna (table-layout:auto) se adapta ao maior numero e o card (.memtab-scroll) rola
+     horizontal em vez de partir o valor em duas linhas. Cabecalhos de 2 palavras (ex. "Correção mês")
+     tem o mesmo problema (orfao "mês" sozinho na 2a linha) -- mesma solucao. obscell/evrow (abaixo)
+     sao mais especificos e re-habilitam o wrap normal so' na coluna Observacoes. */
+  table.memtab th, table.memtab td { white-space:nowrap; }
   /* memoria descritiva: rubrica em destaque + linhas de EVENTO (marcos) com estilo proprio.
      tr.evrow (linha dedicada com colspan) e' usada SO no relatorio PDF/impressao (rel-memtab,
      montada a parte por prepararRelatorioParaImpressao() -- ver JS); na TELA os eventos viram a
