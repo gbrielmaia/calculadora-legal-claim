@@ -154,13 +154,29 @@
   table.memtab tr.evrow td { text-align:left; background:var(--accent-bg); color:var(--ink-2); border-bottom:1px solid var(--rule); font-family:'Inter',sans-serif; font-size:10.5px; line-height:1.55; padding:7px 9px; white-space:normal; border-left:3px solid var(--gold); }
   table.memtab tr.evrow .evmark { display:inline-block; color:var(--gold-deep); font-weight:700; text-transform:uppercase; letter-spacing:.05em; font-size:8.5px; margin-right:7px; font-family:'Inter',sans-serif; }
   table.memtab tr.evrow .evtxt + .evtxt { display:block; margin-top:4px; }
-  /* coluna "Observacoes" (tela): min-width generoso p/ o texto do evento, quebra dentro da celula;
+  /* coluna "Observacoes" (tela): colapsada por padrao (chip curto, linha fina); so' expande a
+     celula (padding+bg de card) quando o usuario clica -- ver .obscell.aberto abaixo. min/max-width
+     ficam CONSTANTES entre os dois estados (o texto completo e' que precisa do espaco largo) pra'
+     a coluna nao "pular" de largura quando uma linha abre/fecha -- so' a altura daquela linha muda;
      o card (div.memtab-scroll) e' quem rola horizontal, nao a celula nem o body. */
   table.memtab th.obshead { text-align:left; }
   table.memtab td.obscell { text-align:left; white-space:normal; vertical-align:top; min-width:380px; max-width:480px; line-height:1.5; color:var(--ink-soft); }
-  table.memtab td.obscell.tem-evento { background:var(--accent-bg); color:var(--ink-2); border-left:3px solid var(--gold); font-family:'Inter',sans-serif; font-size:10.5px; padding:7px 9px; }
+  table.memtab td.obscell.tem-evento { cursor:pointer; }
+  table.memtab td.obscell.tem-evento.aberto { background:var(--accent-bg); color:var(--ink-2); border-left:3px solid var(--gold); font-family:'Inter',sans-serif; font-size:10.5px; padding:7px 9px; }
   table.memtab td.obscell .evmark { display:inline-block; color:var(--gold-deep); font-weight:700; text-transform:uppercase; letter-spacing:.05em; font-size:8.5px; margin-right:6px; font-family:'Inter',sans-serif; }
   table.memtab td.obscell .evtxt + .evtxt { display:block; margin-top:4px; }
+  /* chips compactos (estado colapsado, padrao): rotulo curto do marco, no design da pagina. */
+  table.memtab td.obscell .evchips { display:flex; flex-wrap:wrap; gap:4px; }
+  table.memtab td.obscell .evchip { display:inline-flex; align-items:center; font-family:'Inter',sans-serif;
+    font-size:9px; font-weight:700; letter-spacing:.03em; color:var(--gold-deep); background:var(--accent-bg);
+    border:1px solid var(--gold); border-radius:3px; padding:2px 6px; cursor:pointer; line-height:1.6;
+    white-space:nowrap; }
+  table.memtab td.obscell .evchip:hover { background:var(--gold); color:#fff; }
+  table.memtab td.obscell .evchip:focus-visible { outline:2px solid var(--gold-soft); outline-offset:1px; }
+  table.memtab td.obscell .evchip::after { content:" ▸"; opacity:.65; font-size:8px; }
+  table.memtab td.obscell.aberto .evchip::after { content:" ▾"; }
+  table.memtab td.obscell .evfull { display:none; }
+  table.memtab td.obscell.aberto .evfull { display:block; margin-top:6px; cursor:pointer; }
   .memhint { font-family:'Inter',sans-serif; font-size:11px; line-height:1.5; color:var(--ink-soft); margin:8px 0 2px; }
   .memtab-scroll { overflow-x:auto; }
   table.jmtab input, table.jmtab select { font-size:10.5px; padding:3px 4px; }
@@ -3217,10 +3233,14 @@ function renderResultado(cr, res){
     const temEvento = m.eventos && m.eventos.length;
     // coluna "Observacoes" (tela): eventos da propria competencia, na linha do mes -- em vez da
     // linha dedicada com colspan usada no relatorio PDF (rel-memtab, JS a parte). Mes sem evento
-    // = celula vazia.
+    // = celula vazia. Colapsada por padrao (chip curto por marco); clique abre a celula com o
+    // texto completo (toggleObsCell) -- ver rotuloEventoChip() pro mapeamento texto->rotulo.
     const obsHtml = temEvento
-      ? '<span class="evmark">◆ marco</span>' +
-        m.eventos.map(function(e){ return '<span class="evtxt">' + escapeHtml(e) + '</span>'; }).join('')
+      ? '<div class="evchips">' + chipsDeEventos(m.eventos) + '</div>' +
+        '<div class="evfull" onclick="toggleObsCell(this)">' +
+          '<span class="evmark">◆ marco</span>' +
+          m.eventos.map(function(e){ return '<span class="evtxt">' + escapeHtml(e) + '</span>'; }).join('') +
+        '</div>'
       : '';
     // linha de dados: base de correcao x fator -> C corrigido; base de juros x taxa -> juros do mes
     html +=
@@ -3365,6 +3385,44 @@ function fmtDataBR(iso){
 
 function escapeHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---------------------------------------------------------------- coluna "Observações": chips
+// Mapeia o TEXTO do evento (gerado pelo engine, engine.js::_anota_eventos -- NAO mexer la') pra' um
+// rotulo curto de chip. Casamento por padrao no inicio da frase; ordem importa (mais especifico
+// primeiro). Fallback generico se nenhum padrao bater -- nao trava se o engine mudar o texto.
+function rotuloEventoChip(texto){
+  const t = String(texto || '');
+  if (/^TETO EC ?136/.test(t)) return 'Teto EC 136';
+  if (/^EXPEDI[CÇ][AÃ]O DO PRECAT[OÓ]RIO/i.test(t)) return 'Expedição';
+  if (/^Corte EC ?136/i.test(t)) return 'Corte EC 136';
+  if (/^Fronteira EC ?113/i.test(t)) return 'EC 113';
+  if (/^Consolida[cç][aã]o/i.test(t)) return 'Consolidação 2021';
+  if (/^In[ií]cio da corre[cç][aã]o monet[aá]ria/i.test(t)) return 'Início correção';
+  if (/^Juros pre-?data-?base/i.test(t)) return 'Juros pré-data-base';
+  if (/^In[ií]cio dos juros de mora/i.test(t)) return 'Início juros';
+  if (/^Gra[cç]a/i.test(t)) return 'Graça';
+  if (/^Juros: a tabela muda/i.test(t)) return 'Troca de tabela';
+  if (/^Juros do t[ií]tulo/i.test(t)) return 'Juros do título';
+  return 'marco';
+}
+
+// Um chip por evento; 3+ no mesmo mes viram um unico chip-resumo (evita estourar a celula/card).
+function chipsDeEventos(eventos){
+  if (eventos.length >= 3){
+    return '<button type="button" class="evchip" onclick="toggleObsCell(this)">⚑ ' + eventos.length + ' marcos</button>';
+  }
+  return eventos.map(function(e){
+    return '<button type="button" class="evchip" onclick="toggleObsCell(this)">⚑ ' + escapeHtml(rotuloEventoChip(e)) + '</button>';
+  }).join('');
+}
+
+// Abre/fecha a celula de Observacoes (chip ou texto completo -> mesma td.obscell). Colapsado por
+// padrao (ver render em atualizarResultados()); sem persistencia de estado entre calculos.
+function toggleObsCell(el){
+  const td = el.closest('td.obscell');
+  if (!td) return;
+  td.classList.toggle('aberto');
 }
 
 function montarLinhasJurosManuais(lista){
