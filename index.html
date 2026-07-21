@@ -506,7 +506,9 @@
         sigla <code>TJxx</code> = fallback nacional + aviso), <code>tipo_relacao</code>
         (contratual/extracontratual/previdenciario), <code>natureza_verba</code>
         (geral/servidor/militar/desapropriacao/trabalhista), <code>tributario</code> (sim/nao),
-        <code>data_expedicao</code> e <code>honorario_pct</code>. Separador <code>;</code> ou
+        <code>data_expedicao</code>, <code>honorario_pct</code>, <code>honorario_base</code>
+        (total/principal, default total) e <code>honorario_modo</code> (adicionado/embutido, default
+        adicionado). Separador <code>;</code> ou
         <code>,</code> — detectado automaticamente; decimal com vírgula ou ponto; datas no formato
         <code>AAAA-MM-DD</code>.
       </p>
@@ -2915,6 +2917,8 @@ const COLUNA_ALIASES = {
   tributario: ["tributario", "e_tributario"],
   data_expedicao: ["data_expedicao", "data_de_expedicao"],
   honorario_pct: ["honorario_pct", "honorario", "honorario_percentual"],
+  honorario_base: ["honorario_base", "base_honorario"],
+  honorario_modo: ["honorario_modo", "modo_honorario"],
 };
 const CAMPOS_CANONICOS = Object.keys(COLUNA_ALIASES);
 const CAMPOS_OBRIGATORIOS = ["valor", "data_base", "data_citacao"];
@@ -2927,7 +2931,8 @@ const NATUREZA_VERBA_VALIDOS = ["geral", "servidor", "militar", "desapropriacao"
 // `tribunal_origem` (E7): eixo de roteamento do trilho -- "CJF"/vazio = Justica Federal (default);
 // "TJSP" = trilho estadual proprio (DEPRE/Prov 207); outro "TJxx" = fallback nacional + flag.
 const COLUNAS_MODELO = ["valor", "data_base", "data_citacao", "data_calculo", "ente", "tribunal_origem",
-  "tipo_relacao", "natureza_verba", "tributario", "data_expedicao", "honorario_pct"];
+  "tipo_relacao", "natureza_verba", "tributario", "data_expedicao", "honorario_pct",
+  "honorario_base", "honorario_modo"];
 
 // ============================================================ utilitarios de parsing
 function _normalizeToken(s) {
@@ -3032,6 +3037,8 @@ function validarEConverterLinha(valoresLinha, indice, hojeISO) {
     tributario: _campoBruto(valoresLinha, indice, "tributario"),
     data_expedicao: _campoBruto(valoresLinha, indice, "data_expedicao"),
     honorario_pct: _campoBruto(valoresLinha, indice, "honorario_pct"),
+    honorario_base: _campoBruto(valoresLinha, indice, "honorario_base"),
+    honorario_modo: _campoBruto(valoresLinha, indice, "honorario_modo"),
   };
 
   const erros = [];
@@ -3092,6 +3099,18 @@ function validarEConverterLinha(valoresLinha, indice, hojeISO) {
     else honorarioPct = h;
   }
 
+  let honorarioBase = (entradaBruta.honorario_base || "").trim().toLowerCase();
+  if (honorarioBase === "") { honorarioBase = "total"; }
+  else if (["total", "principal"].indexOf(honorarioBase) === -1) {
+    erros.push('honorario_base invalido ("' + entradaBruta.honorario_base + '") -- use total ou principal');
+  }
+
+  let honorarioModo = (entradaBruta.honorario_modo || "").trim().toLowerCase();
+  if (honorarioModo === "") { honorarioModo = "adicionado"; }
+  else if (["adicionado", "embutido"].indexOf(honorarioModo) === -1) {
+    erros.push('honorario_modo invalido ("' + entradaBruta.honorario_modo + '") -- use adicionado ou embutido');
+  }
+
   if (erros.length) return { ok: false, erro: erros.join("; "), entradaBruta: entradaBruta };
 
   if (entradaBruta.data_base > dataCalculo) erros.push("data-base posterior a data do calculo");
@@ -3102,6 +3121,8 @@ function validarEConverterLinha(valoresLinha, indice, hojeISO) {
     ok: true,
     entradaBruta: entradaBruta,
     honorarioPct: honorarioPct,
+    honorarioBase: honorarioBase,
+    honorarioModo: honorarioModo,
     credito: {
       valor_historico: valor,
       data_base_correcao: entradaBruta.data_base,
@@ -3147,17 +3168,18 @@ function processarLote(csvTexto, E, base, cfg, hojeISO) {
           const resultado = E.corrigir(conv.credito, base, cfg);
           let hon = null;
           if (conv.honorarioPct !== null && conv.honorarioPct > 0) {
-            hon = E.honorario(conv.honorarioPct / 100, [resultado], "total");
+            hon = E.honorario(conv.honorarioPct / 100, [resultado], conv.honorarioBase);
           }
           linhaResultado = {
             numero: numero, status: "ok", mensagem: "", entradaBruta: conv.entradaBruta,
             credito: conv.credito, resultado: resultado, honorario: hon, honorarioPct: conv.honorarioPct,
+            honorarioBase: conv.honorarioBase, honorarioModo: conv.honorarioModo,
           };
         } catch (eEngine) {
           linhaResultado = {
             numero: numero, status: "recusado", mensagem: "[" + eEngine.name + "] " + eEngine.message,
             entradaBruta: conv.entradaBruta, credito: conv.credito, resultado: null, honorario: null,
-            honorarioPct: conv.honorarioPct,
+            honorarioPct: conv.honorarioPct, honorarioModo: (conv && conv.honorarioModo) || "adicionado",
           };
         }
       }
@@ -3190,10 +3212,10 @@ function processarLote(csvTexto, E, base, cfg, hojeISO) {
 // ente estadual) -- dispara a espinha DEPRE + flag trilho-estadual-tjsp (E7).
 function gerarCSVModelo() {
   const linhas = [COLUNAS_MODELO.join(";")];
-  linhas.push(["100000,00", "2020-01-01", "2020-01-01", "", "uniao", "", "contratual", "geral", "nao", "", ""].join(";"));
-  linhas.push(["50000,00", "2019-06-01", "2019-06-01", "2026-01-01", "uniao", "", "contratual", "geral", "nao", "", "10"].join(";"));
-  linhas.push(["1000,00", "2019-01-01", "2019-01-01", "2026-03-01", "uniao", "", "contratual", "geral", "nao", "2019-01-01", ""].join(";"));
-  linhas.push(["1000,00", "2005-01-01", "2005-01-01", "2026-03-01", "estadual", "TJSP", "contratual", "geral", "nao", "", ""].join(";"));
+  linhas.push(["100000,00", "2020-01-01", "2020-01-01", "", "uniao", "", "contratual", "geral", "nao", "", "", "", ""].join(";"));
+  linhas.push(["50000,00", "2019-06-01", "2019-06-01", "2026-01-01", "uniao", "", "contratual", "geral", "nao", "", "10", "total", "embutido"].join(";"));
+  linhas.push(["1000,00", "2019-01-01", "2019-01-01", "2026-03-01", "uniao", "", "contratual", "geral", "nao", "2019-01-01", "", "", ""].join(";"));
+  linhas.push(["1000,00", "2005-01-01", "2005-01-01", "2026-03-01", "estadual", "TJSP", "contratual", "geral", "nao", "", "", "", ""].join(";"));
   return linhas.join("\r\n");
 }
 
@@ -3210,7 +3232,7 @@ function _csvTxt(v) {
 const CSV_RESULTADO_HEADER = [
   "linha", "status", "mensagem",
   "valor_original", "data_base", "data_citacao", "data_calculo", "ente", "tribunal_origem", "tipo_relacao",
-  "natureza_verba", "tributario", "data_expedicao", "honorario_pct",
+  "natureza_verba", "tributario", "data_expedicao", "honorario_pct", "honorario_base", "honorario_modo",
   "valor_atualizado", "principal", "correcao", "principal_corrigido",
   "juros_ate_2021", "juros_selic", "juros_fase_nova", "ajuste_teto_ec136",
   "honorario_valor", "total_com_honorarios", "n_flags", "flags",
@@ -3226,7 +3248,7 @@ function gerarCSVResultado(resultadoLote) {
       l.numero, l.status, _csvTxt(l.mensagem),
       eb.valor || "", eb.data_base || "", eb.data_citacao || "", eb.data_calculo || "", eb.ente || "",
       eb.tribunal_origem || "", eb.tipo_relacao || "", eb.natureza_verba || "", eb.tributario || "", eb.data_expedicao || "",
-      eb.honorario_pct || "",
+      eb.honorario_pct || "", eb.honorario_base || "", eb.honorario_modo || "",
       r ? _csvNum(r.valor_corrigido_hoje) : "",
       r ? _csvNum(r.principal) : "",
       r ? _csvNum(r.correcao) : "",
@@ -3236,7 +3258,7 @@ function gerarCSVResultado(resultadoLote) {
       r ? _csvNum(r.juros_fase_nova) : "",
       r ? _csvNum(r.ajuste_teto_ec136) : "",
       hon ? _csvNum(hon.valor) : "",
-      (r && hon) ? _csvNum(r.valor_corrigido_hoje + hon.valor) : "",
+      (r && hon) ? _csvNum(l.honorarioModo === "embutido" ? (r.valor_corrigido_hoje - hon.valor) : (r.valor_corrigido_hoje + hon.valor)) : "",
       r ? r.flags_pendentes.length : "",
       r ? _csvTxt(flagsSemPrefixo(r.flags_pendentes).join(" | ")) : "",
     ];
@@ -4031,7 +4053,7 @@ function renderLote(resultado){
       jSelic = fmtBRL(r.juros_selic);
       jNova = fmtBRL(r.juros_fase_nova);
       ajTeto = fmtBRL(r.ajuste_teto_ec136);
-      honCol = l.honorario ? fmtBRL(l.honorario.valor) : '—';
+      honCol = l.honorario ? ((l.honorarioModo === 'embutido' ? '− ' : '+ ') + fmtBRL(l.honorario.valor)) : '—';
       const n = r.flags_pendentes.length;
       if (n === 0){
         flagsHtml = '<span class="flagbadge flagbadge-ok">0</span>';
