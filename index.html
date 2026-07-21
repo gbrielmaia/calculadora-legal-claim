@@ -205,6 +205,7 @@
   .res .v { font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--ink); font-weight:500; text-align:right; white-space:nowrap; }
   .res.tot { border-top:1px solid var(--rule-strong); border-bottom:none; margin-top:2px; padding-top:11px; }
   .res.tot .k { font-weight:600; color:var(--ink); } .res.tot .v { color:var(--gold-deep); font-weight:600; font-size:16px; }
+  .decomp .subnote .k{font-size:.72rem;color:var(--ink-mute);padding-left:1.1rem;} .decomp .subnote{margin-top:-.15rem;}
 
   /* flags — sempre visíveis, nunca colapsadas */
   .flagsbox { margin-top:4px; }
@@ -404,6 +405,8 @@
               <span><input type="number" id="inHonorarioPct" step="0.01" min="0" placeholder="—" oninput="calcular()"><span class="suffix">%</span></span></div>
             <div class="field"><label>Base do honorário<span class="help" title="Total = principal+correção+juros (valor_corrigido_hoje). Principal = principal+correção, exclui os juros de mora (sobre='principal').">i</span></label>
               <span><select id="inHonorarioBase" onchange="calcular()"><option value="total" selected>Total da execução</option><option value="principal">Principal + correção</option></select></span></div>
+            <div class="field"><label>Modo do honorário<span class="help" title="Adicionado: o valor original é líquido e o honorário é somado por cima. Embutido: o honorário já está dentro do valor de face (ex.: reserva de 30%) e é deduzido para chegar ao líquido do credor.">i</span></label>
+              <span><select id="inHonorarioModo" onchange="calcular()"><option value="adicionado" selected>Adicionado (valor é líquido)</option><option value="embutido">Embutido no valor</option></select></span></div>
           </details>
         </div>
       </div>
@@ -428,12 +431,8 @@
             </div>
             <div class="decomp">
               <div class="res"><span class="k">Principal original (A)</span><span class="v" id="rPrincipal">—</span></div>
-              <div class="res"><span class="k">Correção monetária</span><span class="v" id="rCorrecao">—</span></div>
-              <div class="res tot"><span class="k">Principal corrigido (C)</span><span class="v" id="rPrincipalCorrigido">—</span></div>
-              <div class="res"><span class="k">Juros até 12/2021 (G)<span class="help" title="Fase pré-Selic: C × D% (0,5%/poupança/Selic-aditiva histórica).">i</span></span><span class="v" id="rJurosAte2021">—</span></div>
-              <div class="res"><span class="k">Juros Selic — EC113 (H)<span class="help" title="(C+G) × E%, sobre principal corrigido + juros já acumulados.">i</span></span><span class="v" id="rJurosSelic">—</span></div>
-              <div class="res"><span class="k">Juros fase nova (I)<span class="help" title="C × F%: taxa legal no conhecimento, ou 2% a.a. no precatório expedido.">i</span></span><span class="v" id="rJurosFaseNova">—</span></div>
-              <div class="res"><span class="k">Ajuste teto EC136<span class="help" title="Pode ser negativo. Teto do precatório já expedido (Selic×consolidado vs IPCA+2%), não é 'juros normais'. Sempre exibido, mesmo quando zero.">i</span></span><span class="v" id="rAjusteTeto">—</span></div>
+              <div id="decompFases"></div>
+              <div class="res tot"><span class="k">Valor de face hoje</span><span class="v" id="rValorFaceDecomp">—</span></div>
               <div class="res hide" id="rowHonorario"><span class="k">Honorários (<span id="rHonorarioPct">—</span>%)<span class="help" title="Fase 2 (correcao.honorario): percentual sobre a base escolhida, calculado à parte do valor de face.">i</span></span><span class="v" id="rHonorarioValor">—</span></div>
               <div class="res tot hide" id="rowTotalHonorario"><span class="k">Total com honorários</span><span class="v" id="rTotalComHonorarios">—</span></div>
             </div>
@@ -2803,6 +2802,68 @@ function honorario(percentual, resultados, sobre) {
   return { base: base, percentual: percentual, valor: pyRound(base * percentual, 2) };
 }
 
+// --- Exibição (não-cálculo): re-agrega o resultado por FASE da vida do crédito. Puro; não entra
+// em corrigir(). Spec 2026-07-20-calculadora-decomposicao-fases-honorarios-design.md.
+const _REGIME_PARA_FASE = { F1: "F1", F2_TR: "F2", F2_IPCAE: "F2", F3: "F3", F4_SELIC: "F4", F5: "F5", tributario: "TRIB" };
+function agruparPorFase(cr, res) {
+  const expedido = cr.data_expedicao != null;
+  const acc = {};  // fase -> { correcao, juros }
+  for (const m of res.memoria) {
+    const fase = _REGIME_PARA_FASE[m.regime];
+    if (!fase) continue;  // regime não mapeado (não deveria ocorrer)
+    if (!acc[fase]) acc[fase] = { correcao: 0, juros: 0 };
+    acc[fase].correcao += m.correcao_do_mes;
+    acc[fase].juros += m.juros_do_mes;
+  }
+  const conhecimento = [];
+  // TRIB (regime "tributario") sempre entra no conhecimento, expedido ou não: o crédito
+  // tributário não tem fase "precatório" separada nesta decomposição -- fica junto do bloco final.
+  const fasesConh = expedido ? ["F1", "F2", "F3", "F4", "TRIB"] : ["F1", "F2", "F3", "F4", "F5", "TRIB"];
+  for (const f of fasesConh) {
+    // só fases com movimento real: soma exatamente zero é o mês-âncora da data-base (sem
+    // correção/juros), não uma fase percorrida — fases reais sempre têm movimento de índice.
+    if (acc[f] && (acc[f].correcao !== 0 || acc[f].juros !== 0)) conhecimento.push({ fase: f, correcao: acc[f].correcao, juros: acc[f].juros, total: acc[f].correcao + acc[f].juros });
+  }
+  let precatorio = null;
+  if (expedido) {
+    const f5 = acc.F5 || { correcao: 0, juros: 0 };
+    precatorio = {
+      correcao: f5.correcao,
+      // f5.juros (Σ juros_do_mes dos meses F5), não res.juros_fase_nova: no estadual-expedido
+      // (Prov. CNJ 207) os meses F5 carregam Selic residual que o campo I não inclui; usar o
+      // campo literal abriria ~R$199k de diferença e a soma não fecharia.
+      juros: f5.juros,
+      ajusteTeto: res.ajuste_teto_ec136,
+      total: f5.correcao + f5.juros + res.ajuste_teto_ec136,
+    };
+  }
+  // Reconciliação: a memória é descritiva e pode divergir ~1 mês de Selic do valor de face no
+  // boundary termo==data-base (quirk pré-existente do motor em _anota_juros_e_bases). res.valor_
+  // corrigido_hoje é a fonte de verdade. Absorve o resíduo na fase Selic (F4), de onde ele vem;
+  // no-op quando já fecha (Helena, expedido). Fallback: última fase do conhecimento, ou precatório.
+  const _somaBlocos = res.principal + conhecimento.reduce((s, f) => s + f.total, 0) + (precatorio ? precatorio.total : 0);
+  const _residuo = res.valor_corrigido_hoje - _somaBlocos;
+  if (Math.abs(_residuo) > 0.005) {
+    const alvo = conhecimento.find(f => f.fase === "F4") || conhecimento[conhecimento.length - 1] || precatorio;
+    if (alvo) { alvo.juros += _residuo; alvo.total += _residuo; }
+  }
+  const valorFimConhecimento = res.principal + conhecimento.reduce((s, f) => s + f.total, 0);
+  return { conhecimento, precatorio, valorFimConhecimento, valorFace: res.valor_corrigido_hoje };
+}
+
+// ============================================================ Exibição: resumo de honorários (adicionado vs embutido)
+function honorarioResumo(valorFace, honorario, modo) {
+  const embutido = modo === "embutido";
+  return {
+    modo: embutido ? "embutido" : "adicionado",
+    honorario: honorario,
+    sinal: embutido ? "−" : "+",
+    rotuloLinha: embutido ? "Honorários embutidos" : "Honorários adicionados",
+    rotuloFecho: embutido ? "Valor líquido do credor" : "Total com honorários",
+    valorFecho: embutido ? (valorFace - honorario) : (valorFace + honorario),
+  };
+}
+
 // ============================================================ export (node + browser)
 const API = {
   pyRound,
@@ -2821,7 +2882,7 @@ const API = {
   taxa_juros_mes, taxa_juros_mes_efetiva, selic_soma, aplica_teto_ec136, em_graca,
   juros_manual_no_mes, flags_natureza_verba, flags_previdenciario, flags_variante_tabela,
   flags_regra_juros, _regra_e_competencia, _f5_expedido, _f5_selic_residual, _f5_expedido_selic_residual,
-  _regra_ativa, _termo_inicial_comp, _PRIMEIRO_MES, _EC136_2PCT, corrigir, honorario,
+  _regra_ativa, _termo_inicial_comp, _PRIMEIRO_MES, _EC136_2PCT, corrigir, honorario, agruparPorFase, honorarioResumo,
 };
 if (typeof module !== "undefined" && module.exports) module.exports = API;
 if (typeof window !== "undefined") window.CalcEngine = API;
@@ -3455,23 +3516,85 @@ function calcularHonorario(res){
   return CalcEngine.honorario(pct / 100, [res], sobre);
 }
 
+const _DESCR_FASE = {
+  F1: "Cadeia ORTN…IPCA-E + expurgos (Bresser/Verão/Collor) · fato gerador → jun/2009.",
+  F2: "IPCA-E (ou TR, se expedido até 25/03/2015) — Lei 11.960/2009 · jul/2009 → 25/03/2015.",
+  F3: "IPCA-E — Tema 810/STF · 25/03/2015 → nov/2021.",
+  F4: "Selic única — art. 3º da EC 113/2021 · dez/2021 → set/2025 · a Selic ENGLOBA correção e juros.",
+  F5: "Código Civil / Tema 1.419 · a partir de out/2025 · correção IPCA-15 (art. 389 p.ú.) + juros pela taxa legal (art. 406, Lei 14.905/2024).",
+};
+const _ROTULO_FASE = { F1: "ORTN…IPCA-E + expurgos", F2: "IPCA-E / TR (Lei 11.960)", F3: "IPCA-E (Tema 810)", F4: "Selic única (EC 113)", F5: "IPCA-15 + taxa legal (Código Civil)", TRIB: "Tributário (Selic)" };
+// Fases em que a Selic engloba correção+juros (linha única, sem split): F4 e TRIB.
+const _FASE_SELIC_ENGLOBA = { F4: true, TRIB: true };
+// Descritivo do bucket tributário (Task 1 mapeia regime "tributario" -> "TRIB").
+_DESCR_FASE.TRIB = "Crédito tributário — Selic (art. 3º EC 113 / Manual CJF) · a Selic engloba correção e juros.";
+function _tooltipFase(f) {
+  const rotulo = _ROTULO_FASE[f.fase] || f.fase;
+  const descr = _DESCR_FASE[f.fase] || "";
+  const split = _FASE_SELIC_ENGLOBA[f.fase]
+    ? "Selic engloba correção e juros: " + fmtBRL(f.total)
+    : "Correção monetária: " + fmtBRL(f.correcao) + " · Juros de mora: " + fmtBRL(f.juros);
+  return (descr + " [" + rotulo + " · " + split + "]").replace(/"/g, "&quot;");
+}
+function renderDecompFasesTela(cr, res) {
+  const g = CalcEngine.agruparPorFase(cr, res);
+  let html = '<div class="subhdr">Fase de direito creditório (conhecimento)</div>';
+  for (const f of g.conhecimento)
+    html += '<div class="res"><span class="k">' + f.fase + ' <span class="help" title="' + _tooltipFase(f) + '">i</span></span><span class="v">' + fmtBRL(f.total) + '</span></div>';
+  html += '<div class="res tot"><span class="k">Valor ao fim do conhecimento</span><span class="v">' + fmtBRL(g.valorFimConhecimento) + '</span></div>';
+  // guard: não renderizar o bloco precatório quando ele é todo-zero (ex.: tributário expedido,
+  // que não tem meses F5) — evita seção vazia.
+  if (g.precatorio && (g.precatorio.correcao || g.precatorio.juros || g.precatorio.ajusteTeto)) {
+    const p = g.precatorio;
+    html += '<div class="subhdr">Fase de precatório (após expedição)</div>';
+    html += '<div class="res"><span class="k">Correção monetária (EC 136 · IPCA) <span class="help" title="IPCA sobre o principal atualizado — art. 3º §1º EC 113 (red. EC 136) / ADCT art. 97 §16 (Est/Mun).">i</span></span><span class="v">' + fmtBRL(p.correcao) + '</span></div>';
+    html += '<div class="res"><span class="k">Juros de mora (2% a.a. · EC 136) <span class="help" title="2% a.a. simples sobre o principal (EC 136).">i</span></span><span class="v">' + fmtBRL(p.juros) + '</span></div>';
+    html += '<div class="res"><span class="k">Ajuste (teto Selic) <span class="help" title="Comparação com a Selic acumulada; prevalece o menor (teto). Pode ser negativo; sempre exibido.">i</span></span><span class="v">' + fmtBRL(p.ajusteTeto) + '</span></div>';
+  }
+  $('decompFases').innerHTML = html;
+  $('rValorFaceDecomp').textContent = fmtBRL(g.valorFace);
+}
+
+// Espelha renderDecompFasesTela para o relatório PDF: sem hover (papel não tem hover), então o
+// descritivo de split correção+juros vira uma sublinha .subnote inline (omitida quando a fase
+// engloba correção+juros numa taxa única -- F4/TRIB, ver _FASE_SELIC_ENGLOBA).
+function renderDecompFasesPDF(cr, res) {
+  const g = CalcEngine.agruparPorFase(cr, res);
+  let h = '<div class="res"><span class="k">Principal original (A)</span><span class="v">' + fmtBRL(res.principal) + '</span></div>';
+  h += '<div class="subhdr">Fase de direito creditório (conhecimento)</div>';
+  for (const f of g.conhecimento) {
+    h += '<div class="res"><span class="k">' + f.fase + ' &middot; ' + (_ROTULO_FASE[f.fase] || f.fase) + '</span><span class="v">' + fmtBRL(f.total) + '</span></div>';
+    if (!_FASE_SELIC_ENGLOBA[f.fase])
+      h += '<div class="res subnote"><span class="k">correção ' + fmtBRL(f.correcao) + ' + juros de mora ' + fmtBRL(f.juros) + '</span><span class="v"></span></div>';
+  }
+  h += '<div class="res tot"><span class="k">Valor ao fim do conhecimento</span><span class="v">' + fmtBRL(g.valorFimConhecimento) + '</span></div>';
+  // guard: idem tela — sem bloco precatório todo-zero (tributário expedido).
+  if (g.precatorio && (g.precatorio.correcao || g.precatorio.juros || g.precatorio.ajusteTeto)) {
+    const p = g.precatorio;
+    h += '<div class="subhdr">Fase de precatório (após expedição)</div>';
+    h += '<div class="res"><span class="k">Correção monetária (EC 136 · IPCA)</span><span class="v">' + fmtBRL(p.correcao) + '</span></div>';
+    h += '<div class="res"><span class="k">Juros de mora (2% a.a. · EC 136)</span><span class="v">' + fmtBRL(p.juros) + '</span></div>';
+    h += '<div class="res"><span class="k">Ajuste (teto Selic)</span><span class="v">' + fmtBRL(p.ajusteTeto) + '</span></div>';
+  }
+  return h;
+}
+
 function renderResultado(cr, res){
   $('rValorHoje').textContent = fmtBRL(res.valor_corrigido_hoje);
   $('rPrincipal').textContent = fmtBRL(res.principal);
-  $('rCorrecao').textContent = fmtBRL(res.correcao);
-  $('rPrincipalCorrigido').textContent = fmtBRL(res.principal + res.correcao);
-  $('rJurosAte2021').textContent = fmtBRL(res.juros_ate_2021);
-  $('rJurosSelic').textContent = fmtBRL(res.juros_selic);
-  $('rJurosFaseNova').textContent = fmtBRL(res.juros_fase_nova);
-  $('rAjusteTeto').textContent = fmtBRL(res.ajuste_teto_ec136);
+  renderDecompFasesTela(cr, res);
 
   const hon = calcularHonorario(res);
   if (hon){
+    const hr = CalcEngine.honorarioResumo(res.valor_corrigido_hoje, hon.valor, $('inHonorarioModo').value);
     $('rowHonorario').classList.remove('hide');
     $('rowTotalHonorario').classList.remove('hide');
     $('rHonorarioPct').textContent = $('inHonorarioPct').value.replace('.', ',');
-    $('rHonorarioValor').textContent = fmtBRL(hon.valor);
-    $('rTotalComHonorarios').textContent = fmtBRL(res.valor_corrigido_hoje + hon.valor);
+    $('rHonorarioValor').textContent = hr.sinal + ' ' + fmtBRL(hr.honorario);
+    $('rTotalComHonorarios').textContent = fmtBRL(hr.valorFecho);
+    document.querySelector('#rowTotalHonorario .k').textContent = hr.rotuloFecho;
+    // rótulo da linha: markup é "Honorários (<span id=rHonorarioPct>..</span>%)"; o 1º nó de texto é "Honorários ("
+    document.querySelector('#rowHonorario .k').childNodes[0].nodeValue = (hr.modo === 'embutido' ? 'Honorários embutidos (' : 'Honorários (');
   } else {
     $('rowHonorario').classList.add('hide');
     $('rowTotalHonorario').classList.add('hide');
@@ -3560,8 +3683,9 @@ function copiarResumo(){
   linhas.push('Ajuste teto EC136: ' + fmtBRL(res.ajuste_teto_ec136));
   if (ULTIMO.hon){
     const baseLbl = $('inHonorarioBase').value === 'principal' ? 'principal + correção' : 'total da execução';
-    linhas.push('Honorários (' + $('inHonorarioPct').value.replace('.', ',') + '%, base: ' + baseLbl + '): ' + fmtBRL(ULTIMO.hon.valor));
-    linhas.push('TOTAL COM HONORÁRIOS: ' + fmtBRL(res.valor_corrigido_hoje + ULTIMO.hon.valor));
+    const hr = CalcEngine.honorarioResumo(res.valor_corrigido_hoje, ULTIMO.hon.valor, $('inHonorarioModo').value);
+    linhas.push(hr.rotuloLinha + ' (' + $('inHonorarioPct').value.replace('.', ',') + '%, base: ' + baseLbl + '): ' + hr.sinal + ' ' + fmtBRL(hr.honorario));
+    linhas.push(hr.rotuloFecho.toUpperCase() + ': ' + fmtBRL(hr.valorFecho));
   }
   linhas.push('');
   if (res.flags_pendentes.length){
@@ -3609,8 +3733,10 @@ function baixarMemoriaCsv(){
     linhas.push('');
     linhas.push('honorarios_pct;' + $('inHonorarioPct').value.replace('.', ','));
     linhas.push('honorarios_base;' + $('inHonorarioBase').value);
+    linhas.push('honorarios_modo;' + $('inHonorarioModo').value);
     linhas.push('honorarios_valor;' + String(ULTIMO.hon.valor).replace('.', ','));
-    linhas.push('total_com_honorarios;' + String(res.valor_corrigido_hoje + ULTIMO.hon.valor).replace('.', ','));
+    var hrCsv = CalcEngine.honorarioResumo(res.valor_corrigido_hoje, ULTIMO.hon.valor, $('inHonorarioModo').value);
+    linhas.push((hrCsv.modo === 'embutido' ? 'valor_liquido_credor' : 'total_com_honorarios') + ';' + String(hrCsv.valorFecho).replace('.', ','));
   }
   const nomeCasoCsv = ($('docNome').value || '').trim();
   const dataCasoCsv = $('docData').value;
@@ -3721,11 +3847,10 @@ function prepararRelatorioParaImpressao(){
   let honHtml = '';
   if (hon){
     const baseLbl = $('inHonorarioBase').value === 'principal' ? 'principal + correção' : 'total da execução';
+    const hr = CalcEngine.honorarioResumo(res.valor_corrigido_hoje, hon.valor, $('inHonorarioModo').value);
     honHtml =
-      '<div class="res"><span class="k">Honorários (' + $('inHonorarioPct').value.replace('.', ',') + '%, base: ' +
-      baseLbl + ')</span><span class="v">' + fmtBRL(hon.valor) + '</span></div>' +
-      '<div class="res tot"><span class="k">Total com honorários</span><span class="v">' +
-      fmtBRL(res.valor_corrigido_hoje + hon.valor) + '</span></div>';
+      '<div class="res"><span class="k">' + hr.rotuloLinha + ' (' + $('inHonorarioPct').value.replace('.', ',') + '%, base: ' + baseLbl + ')</span><span class="v">' + hr.sinal + ' ' + fmtBRL(hr.honorario) + '</span></div>' +
+      '<div class="res tot"><span class="k">' + hr.rotuloFecho + '</span><span class="v">' + fmtBRL(hr.valorFecho) + '</span></div>';
   }
 
   let memRows = '';
@@ -3788,16 +3913,7 @@ function prepararRelatorioParaImpressao(){
       '<h2 class="sec">Valor atualizado</h2>' +
       '<div class="destaque"><div class="k">Valor de face na data do cálculo</div><div class="v">' +
         fmtBRL(res.valor_corrigido_hoje) + '</div></div>' +
-      '<div class="decomp">' +
-        '<div class="res"><span class="k">Principal original (A)</span><span class="v">' + fmtBRL(res.principal) + '</span></div>' +
-        '<div class="res"><span class="k">Correção monetária</span><span class="v">' + fmtBRL(res.correcao) + '</span></div>' +
-        '<div class="res tot"><span class="k">Principal corrigido (C)</span><span class="v">' + fmtBRL(res.principal + res.correcao) + '</span></div>' +
-        '<div class="res"><span class="k">Juros até 12/2021 (G)</span><span class="v">' + fmtBRL(res.juros_ate_2021) + '</span></div>' +
-        '<div class="res"><span class="k">Juros Selic — EC113 (H)</span><span class="v">' + fmtBRL(res.juros_selic) + '</span></div>' +
-        '<div class="res"><span class="k">Juros fase nova (I)</span><span class="v">' + fmtBRL(res.juros_fase_nova) + '</span></div>' +
-        '<div class="res"><span class="k">Ajuste teto EC136</span><span class="v">' + fmtBRL(res.ajuste_teto_ec136) + '</span></div>' +
-        honHtml +
-      '</div>' +
+      '<div class="decomp">' + renderDecompFasesPDF(cr, res) + honHtml + '</div>' +
     '</div></td></tr>' +
 
     '<tr class="rel-row-avoid"><td><div class="panel">' +
@@ -4012,6 +4128,7 @@ function buildState(){
     inadimplente: $('inInadimplente').checked,
     honorarioPct: $('inHonorarioPct').value,
     honorarioBase: $('inHonorarioBase').value,
+    honorarioModo: $('inHonorarioModo').value,
     nome: $('docNome').value,
     data: $('docData').value
   };
@@ -4044,6 +4161,7 @@ function applyState(s){
     $('inInadimplente').checked = !!s.inadimplente;
     $('inHonorarioPct').value = s.honorarioPct != null ? s.honorarioPct : '';
     if (s.honorarioBase) $('inHonorarioBase').value = s.honorarioBase;
+    if (s.honorarioModo) $('inHonorarioModo').value = s.honorarioModo;
     $('docNome').value = s.nome || '';
     $('docData').value = s.data || '';
     return true;
