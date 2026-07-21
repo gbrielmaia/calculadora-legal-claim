@@ -205,7 +205,10 @@
   .res .v { font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--ink); font-weight:500; text-align:right; white-space:nowrap; }
   .res.tot { border-top:1px solid var(--rule-strong); border-bottom:none; margin-top:2px; padding-top:11px; }
   .res.tot .k { font-weight:600; color:var(--ink); } .res.tot .v { color:var(--gold-deep); font-weight:600; font-size:16px; }
-  .decomp .subnote .k{font-size:.72rem;color:var(--ink-mute);padding-left:1.1rem;} .decomp .subnote{margin-top:-.15rem;}
+  .decomp .subnote .k{font-size:.72rem;color:var(--ink-mute);padding-left:1.1rem;} .decomp .subnote{margin-top:-.15rem;padding:3px 0;border-bottom:none;}
+  .decomp .subnote .v{font-size:11px;color:var(--ink-soft);font-weight:400;}
+  .decomp .fase-idx{font-size:10px;color:var(--gold-deep);font-weight:400;font-family:'IBM Plex Mono',monospace;letter-spacing:.01em;}
+  .decomp .res.fase-main{border-bottom:none;padding-bottom:2px;}
 
   /* flags — sempre visíveis, nunca colapsadas */
   .flagsbox { margin-top:4px; }
@@ -2477,36 +2480,72 @@ function _anota_eventos(memoria, cr, valor_entrada_selic, valor_entrada_f5, marc
 // decadas). A versao anterior aplicava a 1a janela e ignorava as demais, sem aviso. Juros simples
 // sao ADITIVOS -> soma; composto sobreposto (raro, sem regra de composicao) -> conservador (nao
 // soma, so a 1a) + flag. Paridade delta-zero com correcao.py::juros_manual_no_mes.
+const _MS_DIA = 86400000;
+function _diasNoMes(comp) {
+  const y = parseInt(comp.slice(0, 4), 10), m = parseInt(comp.slice(5, 7), 10);
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();   // dia 0 do mes seguinte = ultimo dia deste mes
+}
+function _isoUTC(iso) {
+  return Date.UTC(parseInt(iso.slice(0, 4), 10), parseInt(iso.slice(5, 7), 10) - 1, parseInt(iso.slice(8, 10), 10));
+}
+function _janelaNoMes(j, comp) {
+  const y = parseInt(comp.slice(0, 4), 10), m = parseInt(comp.slice(5, 7), 10);
+  const dmax = _diasNoMes(comp);
+  const primeiro = Date.UTC(y, m - 1, 1), ultimo = Date.UTC(y, m - 1, dmax);
+  const de = j.de === null ? -Infinity : _isoUTC(j.de);
+  const ate = j.ate === null ? Infinity : _isoUTC(j.ate);
+  const ini = Math.max(de, primeiro), fim = Math.min(ate, ultimo);
+  return fim >= ini ? [ini, fim] : null;
+}
+function _haOverlapDeDias(janelas, comp) {
+  const ivs = [];
+  for (let i = 0; i < janelas.length; i++) {
+    const iv = _janelaNoMes(janelas[i], comp);
+    if (iv !== null) ivs.push(iv);
+  }
+  for (let a = 0; a < ivs.length; a++) {
+    for (let b = a + 1; b < ivs.length; b++) {
+      if (Math.max(ivs[a][0], ivs[b][0]) <= Math.min(ivs[a][1], ivs[b][1])) return true;
+    }
+  }
+  return false;
+}
+// Taxa de juros do titulo na competencia, PONDERADA POR DIAS (2026-07-21, Data Traffic).
+// Espelho de correcao.py::juros_manual_no_mes -- ver docstring la'.
 function juros_manual_no_mes(comp, cr, cfg) {
-  const cobrindo = [];
+  const dmax = _diasNoMes(comp);
+  const cobrindo = [];  // [janela, dias]
   for (let i = 0; i < cr.juros_manuais.length; i++) {
-    const j = cr.juros_manuais[i];
-    const ini = j.de === null ? "0000-00" : j.de.slice(0, 7);
-    const fim = j.ate === null ? "9999-99" : j.ate.slice(0, 7);
-    if (ini <= comp && comp <= fim) cobrindo.push(j);
+    const iv = _janelaNoMes(cr.juros_manuais[i], comp);
+    if (iv !== null) cobrindo.push([cr.juros_manuais[i], (iv[1] - iv[0]) / _MS_DIA + 1]);
   }
   if (cobrindo.length === 0) return [null, []];
-  if (cobrindo.length === 1) return [_taxa_mensal_fracao(cobrindo[0]), []];
+  const janelas = cobrindo.map(function (x) { return x[0]; });
+  const simultaneas = _haOverlapDeDias(janelas, comp);
   let temComposto = false;
-  for (let i = 0; i < cobrindo.length; i++) if (cobrindo[i].regime === "composto") temComposto = true;
-  if (temComposto) {
-    return [_taxa_mensal_fracao(cobrindo[0]), [flag(
+  for (let i = 0; i < janelas.length; i++) if (janelas[i].regime === "composto") temComposto = true;
+  if (simultaneas && temComposto) {
+    return [_taxa_mensal_fracao(cobrindo[0][0]) * cobrindo[0][1] / dmax, [flag(
       "juros-manuais-janelas-simultaneas-composto-nao-somadas: " + cobrindo.length + " janelas de "
-      + "juros do titulo cobrem a mesma competencia e ao menos uma e' regime 'composto' -- sem "
-      + "regra de composicao definida para janelas sobrepostas, a soma NAO foi aplicada; usada "
-      + "apenas a 1a janela (" + _descr_janelas(cobrindo) + "). Validar com o advogado-precatorios / "
-      + "registrar pendencia antes de fechar."
+      + "juros do titulo compartilham dias na competencia " + comp + " e ao menos uma e' regime "
+      + "'composto' -- sem regra de composicao definida para janelas sobrepostas, a soma NAO foi "
+      + "aplicada; usada apenas a 1a janela (" + _descr_janelas(janelas) + "). Validar com o "
+      + "advogado-precatorios / registrar pendencia antes de fechar."
     )]];
   }
-  let total = 0.0;
-  for (let i = 0; i < cobrindo.length; i++) total += _taxa_mensal_fracao(cobrindo[i]);
-  return [total, [flag(
-    "juros-manuais-janelas-simultaneas-somadas: " + cobrindo.length + " janelas de juros do titulo "
-    + "vigentes na mesma competencia SOMADAS (" + _descr_janelas(cobrindo) + ") -- juros simples sao "
-    + "aditivos e a coisa julgada prevalece (Tema 905/STJ item 4); cumulacao de juros "
-    + "compensatorios + moratorios propria da desapropriacao (Tema 905/STJ item 3.1.2; "
-    + "cumulabilidade e' tese consolidada do STJ, sumula sem numero validado no acervo)."
-  )]];
+  let taxaEf = 0.0;
+  for (let i = 0; i < cobrindo.length; i++) taxaEf += _taxa_mensal_fracao(cobrindo[i][0]) * cobrindo[i][1] / dmax;
+  const flags = [];
+  if (simultaneas) {
+    flags.push(flag(
+      "juros-manuais-janelas-simultaneas-somadas: " + cobrindo.length + " janelas de juros do titulo "
+      + "compartilham dias na competencia " + comp + " e foram SOMADAS (" + _descr_janelas(janelas) + ") -- "
+      + "juros simples sao aditivos e a coisa julgada prevalece (Tema 905/STJ item 4); cumulacao de "
+      + "juros compensatorios + moratorios propria da desapropriacao (Tema 905/STJ item 3.1.2; "
+      + "cumulabilidade e' tese consolidada do STJ, sumula sem numero validado no acervo)."
+    ));
+  }
+  return [taxaEf, flags];
 }
 
 function corrigir(cr, base, cfg) {
@@ -2963,9 +3002,24 @@ function honorario(percentual, resultados, sobre) {
 // --- Exibição (não-cálculo): re-agrega o resultado por FASE da vida do crédito. Puro; não entra
 // em corrigir(). Spec 2026-07-20-calculadora-decomposicao-fases-honorarios-design.md.
 const _REGIME_PARA_FASE = { F1: "F1", F2_TR: "F2", F2_IPCAE: "F2", F3: "F3", F4_SELIC: "F4", F5: "F5", tributario: "TRIB" };
+// Índice de correção "curto" (estilo Jusfy) a partir do rótulo cru da memória: remove os
+// qualificadores entre parênteses e colapsa a cadeia ORTN..IPCA-E -> IPCA-E (para pós-Real).
+function _indiceCurto(raw) {
+  if (!raw) return "";
+  let s = String(raw).replace(/\s*\([^)]*\)/g, "").trim();   // (CJF), (DEPRE/TJSP), (soma)...
+  s = s.replace(/^ORTN\.\.\s*/, "").replace(/^ORTN…\s*/, "").trim();
+  return s || raw;
+}
+
 function agruparPorFase(cr, res) {
-  const acc = {};  // fase (conhecimento) -> { correcao, juros }: F1-F5 (parte conhecimento) + TRIB
+  const acc = {};  // fase (conhecimento) -> { correcao, juros, comps, indices }: F1-F5 + TRIB
   let precCorr = 0, precJuros = 0;  // porção EC136 (precatório) da F5
+  const precComps = [], precIndices = {};
+  const _regIndice = function (bucket, m) {
+    bucket.comps.push(m.competencia);
+    const ind = _indiceCurto(m.indice);
+    if (ind && m.indice !== "base") bucket.indices[ind] = (bucket.indices[ind] || 0) + 1;
+  };
   for (const m of res.memoria) {
     if (m.regime === "F5") {
       // Bifurcação da F5 pela data de expedição (2026-07-20): o MESMO gate do cálculo
@@ -2976,34 +3030,50 @@ function agruparPorFase(cr, res) {
       if (_f5_expedido(m.regime, m.competencia, cr)) {
         precCorr += m.correcao_do_mes;
         precJuros += m.juros_do_mes;
+        precComps.push(m.competencia);
+        const pind = _indiceCurto(m.indice);
+        if (pind) precIndices[pind] = (precIndices[pind] || 0) + 1;
       } else {
-        if (!acc.F5) acc.F5 = { correcao: 0, juros: 0 };
+        if (!acc.F5) acc.F5 = { correcao: 0, juros: 0, comps: [], indices: {} };
         acc.F5.correcao += m.correcao_do_mes;
         acc.F5.juros += m.juros_do_mes;
+        _regIndice(acc.F5, m);
       }
       continue;
     }
     const fase = _REGIME_PARA_FASE[m.regime];
     if (!fase) continue;  // regime não mapeado (não deveria ocorrer)
-    if (!acc[fase]) acc[fase] = { correcao: 0, juros: 0 };
+    if (!acc[fase]) acc[fase] = { correcao: 0, juros: 0, comps: [], indices: {} };
     acc[fase].correcao += m.correcao_do_mes;
     acc[fase].juros += m.juros_do_mes;
+    _regIndice(acc[fase], m);
   }
+  // Índice dominante + janela de datas (primeira→última competência) de um bucket.
+  const _resumoBucket = function (b) {
+    const comps = (b.comps || []).slice().sort();
+    const indice = Object.keys(b.indices || {}).sort(function (a, c) { return b.indices[c] - b.indices[a]; })[0] || "";
+    return { indice: indice, compIni: comps[0] || "", compFim: comps[comps.length - 1] || "" };
+  };
   const conhecimento = [];
   // F1-F4, F5 (parte conhecimento) e TRIB no bloco de conhecimento, em ordem cronológica; só
   // fases com movimento real (soma zero = mês-âncora da data-base, não uma fase percorrida).
   for (const f of ["F1", "F2", "F3", "F4", "F5", "TRIB"]) {
-    if (acc[f] && (acc[f].correcao !== 0 || acc[f].juros !== 0)) conhecimento.push({ fase: f, correcao: acc[f].correcao, juros: acc[f].juros, total: acc[f].correcao + acc[f].juros });
+    if (acc[f] && (acc[f].correcao !== 0 || acc[f].juros !== 0)) {
+      const rb = _resumoBucket(acc[f]);
+      conhecimento.push({ fase: f, correcao: acc[f].correcao, juros: acc[f].juros, total: acc[f].correcao + acc[f].juros, indice: rb.indice, compIni: rb.compIni, compFim: rb.compFim });
+    }
   }
   // Precatório: existe quando há meses F5 no regime EC136 (Σ juros_do_mes desses meses -- NÃO
   // res.juros_fase_nova, que no expedido pós-corte soma também a parte conhecimento da F5).
   let precatorio = null;
   if (precCorr !== 0 || precJuros !== 0 || res.ajuste_teto_ec136 !== 0) {
+    const prb = _resumoBucket({ comps: precComps, indices: precIndices });
     precatorio = {
       correcao: precCorr,
       juros: precJuros,
       ajusteTeto: res.ajuste_teto_ec136,
       total: precCorr + precJuros + res.ajuste_teto_ec136,
+      indice: prb.indice, compIni: prb.compIni, compFim: prb.compFim,
     };
   }
   // Reconciliação: a memória é descritiva e pode divergir ~1 mês de Selic do valor de face no
@@ -3729,17 +3799,40 @@ function _tooltipFase(f) {
     : "Correção monetária: " + fmtBRL(f.correcao) + " · Juros de mora: " + fmtBRL(f.juros);
   return (descr + " [" + rotulo + " · " + split + "]").replace(/"/g, "&quot;");
 }
+
+// Rótulo Jusfy (simples e direto): "índice de correção · jan/aaaa → mmm/aaaa" da fase.
+const _MESES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function _fmtCompBR(comp){
+  if (!comp) return '';
+  return _MESES_ABREV[parseInt(comp.slice(5,7),10)-1] + '/' + comp.slice(0,4);
+}
+function _faseJanela(f){
+  const idx = f.indice || (_ROTULO_FASE[f.fase] || '');
+  const janela = f.compIni ? (_fmtCompBR(f.compIni) + (f.compFim && f.compFim !== f.compIni ? ' → ' + _fmtCompBR(f.compFim) : '')) : '';
+  return janela ? (idx + ' · ' + janela) : idx;
+}
 function renderDecompFasesTela(cr, res) {
   const g = CalcEngine.agruparPorFase(cr, res);
   let html = '<div class="subhdr">Fase de direito creditório (conhecimento)</div>';
-  for (const f of g.conhecimento)
-    html += '<div class="res"><span class="k">' + f.fase + ' <span class="help" title="' + _tooltipFase(f) + '">i</span></span><span class="v">' + fmtBRL(f.total) + '</span></div>';
+  for (const f of g.conhecimento) {
+    // Selic engloba correção+juros SÓ no modo normal; no modo "juros exclusivamente do título" a
+    // Selic é só índice de correção e os juros vêm das janelas do título -> mostra o split.
+    const engloba = _FASE_SELIC_ENGLOBA[f.fase] && !cr.juros_exclusivamente_manuais;
+    html += '<div class="res fase-main"><span class="k">' + f.fase + ' <span class="fase-idx">' + escapeHtml(_faseJanela(f)) + '</span> <span class="help" title="' + _tooltipFase(f) + '">i</span></span><span class="v">' + fmtBRL(f.total) + '</span></div>';
+    if (engloba) {
+      html += '<div class="res subnote"><span class="k">Selic engloba correção e juros</span><span class="v"></span></div>';
+    } else {
+      html += '<div class="res subnote"><span class="k">correção monetária</span><span class="v">' + fmtBRL(f.correcao) + '</span></div>';
+      html += '<div class="res subnote"><span class="k">juros de mora</span><span class="v">' + fmtBRL(f.juros) + '</span></div>';
+    }
+  }
   html += '<div class="res tot"><span class="k">Valor ao fim do conhecimento</span><span class="v">' + fmtBRL(g.valorFimConhecimento) + '</span></div>';
   // guard: não renderizar o bloco precatório quando ele é todo-zero (ex.: tributário expedido,
   // que não tem meses F5) — evita seção vazia.
   if (g.precatorio && (g.precatorio.correcao || g.precatorio.juros || g.precatorio.ajusteTeto)) {
     const p = g.precatorio;
-    html += '<div class="subhdr">Fase de precatório (após expedição)</div>';
+    const janelaPrec = p.compIni ? (' <span class="fase-idx">' + escapeHtml((p.indice || 'IPCA') + ' · ' + _fmtCompBR(p.compIni) + (p.compFim && p.compFim !== p.compIni ? ' → ' + _fmtCompBR(p.compFim) : '')) + '</span>') : '';
+    html += '<div class="subhdr">Fase de precatório (após expedição)' + janelaPrec + '</div>';
     html += '<div class="res"><span class="k">Correção monetária (EC 136 · IPCA) <span class="help" title="IPCA sobre o principal atualizado — art. 3º §1º EC 113 (red. EC 136) / ADCT art. 97 §16 (Est/Mun).">i</span></span><span class="v">' + fmtBRL(p.correcao) + '</span></div>';
     html += '<div class="res"><span class="k">Juros de mora (2% a.a. · EC 136) <span class="help" title="2% a.a. simples sobre o principal (EC 136).">i</span></span><span class="v">' + fmtBRL(p.juros) + '</span></div>';
     html += '<div class="res"><span class="k">Ajuste (teto Selic) <span class="help" title="Comparação com a Selic acumulada; prevalece o menor (teto). Pode ser negativo; sempre exibido.">i</span></span><span class="v">' + fmtBRL(p.ajusteTeto) + '</span></div>';
@@ -3756,9 +3849,14 @@ function renderDecompFasesPDF(cr, res) {
   let h = '<div class="res"><span class="k">Principal original (A)</span><span class="v">' + fmtBRL(res.principal) + '</span></div>';
   h += '<div class="subhdr">Fase de direito creditório (conhecimento)</div>';
   for (const f of g.conhecimento) {
-    h += '<div class="res"><span class="k">' + f.fase + ' &middot; ' + (_ROTULO_FASE[f.fase] || f.fase) + '</span><span class="v">' + fmtBRL(f.total) + '</span></div>';
-    if (!_FASE_SELIC_ENGLOBA[f.fase])
-      h += '<div class="res subnote"><span class="k">correção ' + fmtBRL(f.correcao) + ' + juros de mora ' + fmtBRL(f.juros) + '</span><span class="v"></span></div>';
+    const engloba = _FASE_SELIC_ENGLOBA[f.fase] && !cr.juros_exclusivamente_manuais;
+    h += '<div class="res fase-main"><span class="k">' + f.fase + ' <span class="fase-idx">' + escapeHtml(_faseJanela(f)) + '</span></span><span class="v">' + fmtBRL(f.total) + '</span></div>';
+    if (engloba) {
+      h += '<div class="res subnote"><span class="k">Selic engloba correção e juros</span><span class="v"></span></div>';
+    } else {
+      h += '<div class="res subnote"><span class="k">correção monetária</span><span class="v">' + fmtBRL(f.correcao) + '</span></div>';
+      h += '<div class="res subnote"><span class="k">juros de mora</span><span class="v">' + fmtBRL(f.juros) + '</span></div>';
+    }
   }
   h += '<div class="res tot"><span class="k">Valor ao fim do conhecimento</span><span class="v">' + fmtBRL(g.valorFimConhecimento) + '</span></div>';
   // guard: idem tela — sem bloco precatório todo-zero (tributário expedido).
