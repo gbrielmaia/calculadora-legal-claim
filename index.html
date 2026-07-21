@@ -212,6 +212,8 @@
 
   /* flags — sempre visíveis, nunca colapsadas */
   .flagsbox { margin-top:4px; }
+  .flagcount { display:inline-block; margin-left:4px; padding:1px 7px; border-radius:9px; font-size:10px; font-weight:600; letter-spacing:0; background:var(--gold); color:#fff; vertical-align:middle; }
+  .flagcount.zero { background:transparent; color:var(--ink-mute); font-style:italic; padding:0; }
   .flagitem { padding:9px 11px; margin-top:7px; background:var(--accent-bg); border-left:3px solid var(--gold); font-size:11.5px; line-height:1.5; color:var(--ink-2); overflow-wrap:anywhere; }
   .flagitem.ok { border-left-color:var(--rule-strong); background:transparent; color:var(--ink-mute); font-style:italic; }
 
@@ -352,19 +354,19 @@
         <div class="panel">
           <h2 class="sec">Dados do crédito</h2>
           <div class="field"><label>Valor original<span class="help" title="Valor do crédito na data-base, antes de qualquer correção ou juro.">i</span></label>
-            <span><input type="number" id="inValor" step="0.01" min="0" value="100000" oninput="calcular()"><span class="suffix">R$</span></span></div>
+            <span><input type="number" id="inValor" step="0.01" min="0" value="100000" oninput="calcularDebounced()"><span class="suffix">R$</span></span></div>
           <div class="field"><label>Data-base da correção<span class="help" title="Início da correção monetária (data_base_correcao).">i</span></label>
-            <span><input type="date" id="inDataBase" value="2020-01-01" oninput="calcular()"></span></div>
+            <span><input type="date" id="inDataBase" value="2020-01-01" oninput="calcularDebounced()"></span></div>
           <div class="field"><label>Data da citação<span class="help" title="Início dos juros de mora (data_termo_inicial_juros). Contratual→citação; extracontratual→evento danoso.">i</span></label>
-            <span><input type="date" id="inDataCitacao" value="2020-01-01" oninput="calcular()"></span></div>
+            <span><input type="date" id="inDataCitacao" value="2020-01-01" oninput="calcularDebounced()"></span></div>
           <div class="field"><label>Data do cálculo<span class="help" title="Data de corte do cálculo. Default: hoje. Editável para 'valor em data passada'.">i</span></label>
-            <span><input type="date" id="inDataCalculo" oninput="calcular()"></span></div>
+            <span><input type="date" id="inDataCalculo" oninput="calcularDebounced()"></span></div>
           <div class="field"><label>Ente devedor<span class="help" title="União / Estadual / Municipal — rege a data de corte da EC136 (assimétrica: União 09/2025, Est/Mun 08/2025). Eixo do DEVEDOR; o trilho de cálculo é definido pelo tribunal pagador (campo abaixo).">i</span></label>
             <span><select id="inEnte" onchange="calcular()"><option value="uniao" selected>União</option><option value="estadual">Estadual</option><option value="municipal">Municipal</option></select></span></div>
           <div class="field"><label>Justiça / tribunal pagador<span class="help" title="Eixo de roteamento do trilho de cálculo (tribunal_origem). Federal (CJF): União na Justiça Federal E Estadual/Municipal executados na JF (Res. CJF 983/2026 — trilho federal, Manual CJF 990). TJSP: Justiça Estadual de SP — trilho estadual próprio (Tabela DEPRE/IPCA-E, juros 1% a.m. em 2003-2009, teto EC136 do Prov. CNJ 207/2025). Outro TJ: a regra do CNJ é nacional, mas a tabela própria do tribunal não está no acervo — usa a espinha nacional como fallback, com aviso.">i</span></label>
             <span><select id="inTribunal" onchange="onTribunalChange()"><option value="CJF" selected>Federal (CJF)</option><option value="TJSP">Justiça Estadual — SP (TJSP)</option><option value="__outro__">Justiça Estadual — outro TJ</option></select></span></div>
           <div class="field" id="fieldTribunalOutro" style="display:none;"><label>Sigla do TJ<span class="help" title="Sigla do tribunal pagador (ex.: TJRJ, TJMG). A Tabela Prática própria desse TJ não está no acervo (v1 só tem TJSP) — o motor usa a espinha nacional (coef CJF/IPCA-E) como fallback do art. 21-A da Res. CNJ 303/2019, com flag. Data-base anterior ao Real (jul/1994) é recusada.">i</span></label>
-            <span><input type="text" id="inTribunalOutro" value="TJRJ" placeholder="TJRJ" oninput="calcular()"></span></div>
+            <span><input type="text" id="inTribunalOutro" value="TJRJ" placeholder="TJRJ" oninput="calcularDebounced()"></span></div>
         </div>
 
         <div class="panel">
@@ -378,7 +380,7 @@
             <div class="field"><label>Tributário?<span class="help" title="Repetição de indébito: Selic em todas as janelas, inclusive pós-EC136 (override).">i</span></label>
               <span class="checkfield"><input type="checkbox" id="inTributario" onchange="calcular()"></span></div>
             <div class="field"><label>Data de expedição (precatório)<span class="help" title="Em aberto = ainda em fase de conhecimento. Preenchida = precatório já expedido (gateia o teto EC136, fase F5).">i</span></label>
-              <span><input type="date" id="inDataExpedicao" oninput="calcular()"></span></div>
+              <span><input type="date" id="inDataExpedicao" oninput="calcularDebounced()"></span></div>
 
             <div class="subhdr">Juros manuais do título</div>
             <table class="jmtab" id="tblJuros">
@@ -395,13 +397,13 @@
           <details id="detAdicionais">
             <summary>Outros parâmetros</summary>
             <div class="field"><label>Data da conta<span class="help" title="Data da conta de liquidação (opcional).">i</span></label>
-              <span><input type="date" id="inDataConta" oninput="calcular()"></span></div>
+              <span><input type="date" id="inDataConta" oninput="calcularDebounced()"></span></div>
             <div class="field"><label>Já expedido antes de 25/03/2015?<span class="help" title="Rege o trilho TR na janela F2 (modulação ADI 4.425).">i</span></label>
               <span class="checkfield"><input type="checkbox" id="inJaExpedido2015" onchange="calcular()"></span></div>
             <div class="field"><label>Período de graça — início<span class="help" title="SV 17: juros zerados no período de graça (correção continua).">i</span></label>
-              <span><input type="date" id="inGracaInicio" oninput="calcular()"></span></div>
+              <span><input type="date" id="inGracaInicio" oninput="calcularDebounced()"></span></div>
             <div class="field"><label>Período de graça — fim</label>
-              <span><input type="date" id="inGracaFim" oninput="calcular()"></span></div>
+              <span><input type="date" id="inGracaFim" oninput="calcularDebounced()"></span></div>
             <div class="field"><label>Inadimplente?<span class="help" title="Override: quando marcado, os juros NÃO zeram no período de graça.">i</span></label>
               <span class="checkfield"><input type="checkbox" id="inInadimplente" onchange="calcular()"></span></div>
           </details>
@@ -409,7 +411,7 @@
           <details id="detHonorario">
             <summary>Honorários (fase 2)</summary>
             <div class="field"><label>Honorários<span class="help" title="Percentual de honorário advocatício (fase 2, correcao.honorario) sobre o resultado da fase 1 (o crédito). Vazio = não calcula.">i</span></label>
-              <span><input type="number" id="inHonorarioPct" step="0.01" min="0" placeholder="—" oninput="calcular()"><span class="suffix">%</span></span></div>
+              <span><input type="number" id="inHonorarioPct" step="0.01" min="0" placeholder="—" oninput="calcularDebounced()"><span class="suffix">%</span></span></div>
             <div class="field"><label>Base do honorário<span class="help" title="Total = principal+correção+juros (valor_corrigido_hoje). Principal = principal+correção, exclui os juros de mora (sobre='principal').">i</span></label>
               <span><select id="inHonorarioBase" onchange="calcular()"><option value="total" selected>Total da execução</option><option value="principal">Principal + correção</option></select></span></div>
             <div class="field"><label>Modo do honorário<span class="help" title="Adicionado: o valor original é líquido e o honorário é somado por cima. Embutido: o honorário já está dentro do valor de face (ex.: reserva de 30%) e é deduzido para chegar ao líquido do credor.">i</span></label>
@@ -452,8 +454,10 @@
           </div>
 
           <div class="panel">
-            <h2 class="sec">Sinalizações pendentes</h2>
-            <div id="flagsBox" class="flagsbox"></div>
+            <details id="detFlags">
+              <summary>Sinalizações pendentes <span id="flagsCount" class="flagcount">—</span></summary>
+              <div id="flagsBox" class="flagsbox"></div>
+            </details>
           </div>
         </div>
       </div>
@@ -463,7 +467,7 @@
          Gabriel (2026-07-17): o quadro nao fica mais espremido na coluna direita do grid. -->
     <div class="panel" id="painelMemoria" style="margin-top:22px;">
       <h2 class="sec">Memória de cálculo</h2>
-      <details id="memoriaDetails">
+      <details id="memoriaDetails" ontoggle="onMemoriaToggle()">
         <summary>Ver memória de cálculo completa (<span id="memoriaCount">0</span> competências)</summary>
         <p class="memhint">Cada linha mostra a <strong>base de correção × fator → C corrigido</strong> e a <strong>base de juros × taxa → juros do mês</strong>, com a rubrica (G até 2021 · H Selic EC113 · I fase nova/EC136 · manual) e, quando houver, a <strong>observação</strong> do(s) marco(s) daquela competência (início do cálculo, início dos juros, expedição do precatório, fronteira EC 113, corte EC 136, teto, graça, trocas de tabela) — role o quadro para a direita para ler a observação completa.</p>
         <div class="memtab-scroll"><table class="memtab">
@@ -3605,9 +3609,9 @@ function addJanela(de, ate, taxa, unidade, regime){
   const tbody = document.querySelector('#tblJuros tbody');
   const tr = document.createElement('tr');
   tr.innerHTML =
-    '<td><input type="date" class="jm-de" oninput="calcular()"></td>' +
-    '<td><input type="date" class="jm-ate" oninput="calcular()"></td>' +
-    '<td><input type="number" step="0.0001" class="jm-taxa" placeholder="0,5" oninput="calcular()"></td>' +
+    '<td><input type="date" class="jm-de" oninput="calcularDebounced()"></td>' +
+    '<td><input type="date" class="jm-ate" oninput="calcularDebounced()"></td>' +
+    '<td><input type="number" step="0.0001" class="jm-taxa" placeholder="0,5" oninput="calcularDebounced()"></td>' +
     '<td><select class="jm-unidade" onchange="calcular()"><option value="a.m." selected>a.m.</option><option value="a.a.">a.a.</option></select></td>' +
     '<td><select class="jm-regime" onchange="calcular()"><option value="simples" selected>simples</option><option value="composto">composto</option></select></td>' +
     '<td><button type="button" class="btn rm" onclick="this.closest(\'tr\').remove();calcular()">&times;</button></td>';
@@ -3768,6 +3772,22 @@ function calcular(){
   ULTIMO = {cr:cr, res:res, hon:hon};
 }
 
+// Debounce do recálculo para os campos de DIGITAÇÃO (datas, valor, spreads): sem isso cada tecla
+// dispara calcular() completo (motor + render), o que travava a digitação em datas. Selects e
+// checkboxes seguem em calcular() imediato (mudança discreta, sem storm de eventos).
+let _calcTimer = null;
+function calcularDebounced(){
+  if (_calcTimer) clearTimeout(_calcTimer);
+  _calcTimer = setTimeout(function(){ _calcTimer = null; calcular(); }, 220);
+}
+
+// Montagem preguiçosa da tabela de memória: só constrói o DOM (pesado) quando o usuário abre o
+// <details>. Chamado pelo ontoggle de #memoriaDetails.
+function onMemoriaToggle(){
+  const det = $('memoriaDetails');
+  if (det && det.open && ULTIMO && $('memoriaBody').dataset.stale) renderMemoriaTabela(ULTIMO.res);
+}
+
 // Fase 2 (F1): honorário advocatício sobre o Resultado da fase 1. Vazio/zero/inválido no campo
 // "Honorários (%)" => não calcula (retorna null e as linhas de honorário ficam ocultas).
 function calcularHonorario(res){
@@ -3893,8 +3913,12 @@ function renderResultado(cr, res){
 
   const box = $('flagsBox');
   box.innerHTML = '';
-  if (!res.flags_pendentes.length){
+  const nFlags = res.flags_pendentes.length;
+  const cnt = $('flagsCount');
+  if (!nFlags){
     box.innerHTML = '<div class="flagitem ok">Nenhuma sinalização pendente neste cálculo.</div>';
+    cnt.textContent = 'nenhuma';
+    cnt.className = 'flagcount zero';
   } else {
     res.flags_pendentes.forEach(function(f){
       const msg = f.replace(/^PENDENTE_ADVOGADO_PRECATORIOS:\s*/, '');
@@ -3903,9 +3927,24 @@ function renderResultado(cr, res){
       div.textContent = msg;
       box.appendChild(div);
     });
+    cnt.textContent = String(nFlags);
+    cnt.className = 'flagcount';
   }
+  // Recolhido por padrão (Gabriel: "para não ficar muita mensagem"): o <details> nasce fechado
+  // (sem atributo `open` no HTML) e a contagem no cabeçalho sinaliza quantas há. NÃO forçamos o
+  // estado aqui -> se o usuário abrir o bloco, ele permanece aberto ao ajustar os inputs.
 
   $('memoriaCount').textContent = res.memoria.length;
+  // Memória é PESADA (~280 linhas × 12 colunas com chips/escape). Só a monta quando o <details>
+  // está aberto; colapsada, marca como "stale" e a montagem acontece no ontoggle ao abrir. Isso
+  // tira o gargalo do recálculo a cada tecla (a memória fica recolhida por padrão). Ver
+  // renderMemoriaTabela + o ontoggle de #memoriaDetails.
+  if ($('memoriaDetails').open) renderMemoriaTabela(res);
+  else $('memoriaBody').dataset.stale = '1';
+  return hon;
+}
+
+function renderMemoriaTabela(res){
   const tbody = $('memoriaBody');
   let html = '';
   res.memoria.forEach(function(m){
@@ -3940,7 +3979,7 @@ function renderResultado(cr, res){
       '</tr>';
   });
   tbody.innerHTML = html;
-  return hon;
+  delete $('memoriaBody').dataset.stale;
 }
 
 // ---------------------------------------------------------------- F2: levar ao simulador
