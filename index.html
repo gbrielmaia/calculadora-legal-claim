@@ -3142,10 +3142,16 @@ function honorarioResumo(valorFace, honorario, modo) {
 // ============================================================ correcao.py -- valor_liquido() (pos-processamento)
 // valor_liquido() do motor: liquido = bruto - Σ descontos (valores dados, nao calculados).
 // pyRound espelha o round() do CPython (paridade). Ver correcao.py::valor_liquido.
-function valorLiquido(bruto, descontos) {
-  let total = 0;
-  for (let i = 0; i < descontos.length; i++) total += descontos[i].valor;
-  total = pyRound(total, 2);
+function valorLiquido(bruto, descontos, valorBase) {
+  // Espelho de correcao.valor_liquido: descontos sao PROPORCAO do credito original (p = Σdesc/base)
+  // e crescem junto com a correcao -> total aplicado = Σdesc * (bruto/base). valorBase = valor
+  // original informado (calculadora: valor_historico); ausente => base=bruto => fator 1 (subtracao simples).
+  let soma = 0;
+  for (let i = 0; i < descontos.length; i++) soma += descontos[i].valor;
+  soma = pyRound(soma, 2);
+  const base = (valorBase && valorBase > 0) ? valorBase : bruto;
+  const fator = base ? (bruto / base) : 1;
+  const total = pyRound(soma * fator, 2);
   return { bruto: bruto, total_descontos: total, valor_liquido: pyRound(bruto - total, 2), descontos: descontos };
 }
 
@@ -3985,7 +3991,9 @@ function renderResultado(cr, res){
   renderDecompFasesTela(cr, res);
 
   // Descontos/contribuições (pós-processamento, linha à parte dos honorários -- CalcEngine.valorLiquido).
-  const liq = CalcEngine.valorLiquido(res.valor_corrigido_hoje, cr.descontos);
+  // O desconto é PROPORÇÃO do crédito original (valor_historico) e corrige junto: passa valor_historico
+  // como base -> o valor exibido já vem corrigido para a data do cálculo (cresce com o crédito).
+  const liq = CalcEngine.valorLiquido(res.valor_corrigido_hoje, cr.descontos, cr.valor_historico);
   const rowDesc = $('rowDescontos'), rowLiq = $('rowLiquido');
   if (cr.descontos.length && liq.total_descontos > 0){
     rowDesc.classList.remove('hide'); rowLiq.classList.remove('hide');
