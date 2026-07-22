@@ -290,7 +290,8 @@
   .rel-header .brand { font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-mute); font-weight:600; }
   .rel-header h1 { font-family:'Fraunces',serif; font-weight:400; font-size:23px; margin:6px 0 8px; letter-spacing:-.01em; }
   .rel-header .meta { font-size:11px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; line-height:1.6; }
-  .rel-header .meta a.rel-cenario-link { color:var(--gold-deep); text-decoration:underline; font-weight:600; }
+  .rel-header .meta.rel-cenario-row { margin-top:5px; font-size:11.5px; }
+  .rel-header .meta a.rel-cenario-link { color:var(--gold-deep); text-decoration:underline; font-weight:700; }
   table.rel-dados { width:100%; border-collapse:collapse; font-size:12px; }
   table.rel-dados td { padding:5px 8px; border-bottom:1px dotted var(--rule); vertical-align:top; }
   table.rel-dados td:first-child { color:var(--ink-soft); width:42%; }
@@ -4319,10 +4320,9 @@ function prepararRelatorioParaImpressao(){
       '<div class="brand">Chess Capital · Centro Analítico</div>' +
       '<h1>Calculadora Legal Claim — Relatório de Cálculo</h1>' +
       (casoLabel() ? '<div class="meta" style="font-weight:600;color:var(--gold-deep);">' + escapeHtml(casoLabel()) + '</div>' : '') +
-      '<div class="meta">Cálculo gerado em ' + dataHoraGeracao +
-      ' <a href="' + linkCenario + '" class="rel-cenario-link">(Acessar cenário)</a>' +
-      ' &middot; Índices atualizados até ' +
+      '<div class="meta">Cálculo gerado em ' + dataHoraGeracao + ' &middot; Índices atualizados até ' +
       SERIES_DATA.gerado_em + ' &middot; Método oficial CJF (Manual de Cálculos da Justiça Federal, Res. CJF 990/2026)</div>' +
+      '<div class="meta rel-cenario-row">🔗 <a href="' + linkCenario + '" class="rel-cenario-link">Acessar cenário interativo</a> — abre esta simulação na calculadora online</div>' +
     '</div></td></tr>' +
 
     '<tr class="rel-row-avoid"><td><div class="panel">' +
