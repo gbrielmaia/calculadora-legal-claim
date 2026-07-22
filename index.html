@@ -4108,8 +4108,21 @@ function renderMemoriaTabela(res){
 // ---------------------------------------------------------------- F2: levar ao simulador
 function abrirSimulador(){
   if (!ULTIMO){ toast('Calcule um crédito antes.'); return; }
-  const vf = ULTIMO.res.valor_corrigido_hoje;
-  const url = 'https://gbrielmaia.github.io/simulador-legal-claim/?vf=' + encodeURIComponent(vf) + '&origem=calculadora';
+  const cr = ULTIMO.cr, res = ULTIMO.res;
+  const q = new URLSearchParams();
+  q.set('vf', res.valor_corrigido_hoje);              // Valor atualizado (hoje) -> #face
+  q.set('origem', 'calculadora');
+  if (cr.valor_historico > 0) q.set('vc', cr.valor_historico);   // Valor da causa (data-base) -> #valorCausa
+  // honorario (mesmos ids/semantica nos dois; so' se preenchido)
+  const hp = $('inHonorarioPct').value;
+  if (hp !== '' && parseFloat(hp) > 0){ q.set('hp', hp); q.set('hm', $('inHonorarioModo').value); }
+  // descontos / contribuicoes -> tabela do simulador (base64 JSON, mesmo padrao do estado ?c=)
+  const desc = (cr.descontos || []).map(function(d){ return {rotulo: d.rotulo, valor: d.valor}; });
+  if (desc.length) q.set('desc', btoa(unescape(encodeURIComponent(JSON.stringify(desc)))));
+  // nome do caso -> Nome do credito (DIU)
+  const nome = ($('docNome').value || '').trim();
+  if (nome) q.set('nome', nome);
+  const url = 'https://gbrielmaia.github.io/simulador-legal-claim/?' + q.toString();
   window.open(url, '_blank', 'noopener');
 }
 
