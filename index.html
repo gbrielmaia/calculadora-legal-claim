@@ -4109,10 +4109,15 @@ function renderMemoriaTabela(res){
 function abrirSimulador(){
   if (!ULTIMO){ toast('Calcule um crédito antes.'); return; }
   const cr = ULTIMO.cr, res = ULTIMO.res;
+  const ehPrec = !!cr.data_expedicao;   // expedido -> Precatorio; senao -> Direito creditorio (conhecimento)
   const q = new URLSearchParams();
   q.set('vf', res.valor_corrigido_hoje);              // Valor atualizado (hoje) -> #face
+  q.set('tipo', ehPrec ? 'prec' : 'dc');              // modo do simulador conforme a fase do credito
   q.set('origem', 'calculadora');
-  if (cr.valor_historico > 0) q.set('vc', cr.valor_historico);   // Valor da causa (data-base) -> #valorCausa
+  // #valorCausa: conhecimento -> "Valor da causa" (principal na data-base); precatorio -> "Valor
+  // requisitado" (= face do recem-inscrito, base do IPCA+spread da fase precatorio).
+  const vc = ehPrec ? res.valor_corrigido_hoje : cr.valor_historico;
+  if (vc > 0) q.set('vc', vc);
   // honorario (mesmos ids/semantica nos dois; so' se preenchido)
   const hp = $('inHonorarioPct').value;
   if (hp !== '' && parseFloat(hp) > 0){ q.set('hp', hp); q.set('hm', $('inHonorarioModo').value); }
