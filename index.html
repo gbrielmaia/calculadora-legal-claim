@@ -452,11 +452,20 @@
               <div class="res"><span class="k">Principal original (A)</span><span class="v" id="rPrincipal">—</span></div>
               <div id="decompFases"></div>
               <div class="res tot"><span class="k">Valor de face hoje</span><span class="v" id="rValorFaceDecomp">—</span></div>
-              <div class="res hide" id="rowDescontos"><span class="k">(−) Descontos / contribuições<span class="help" title="Retenções do Ofício Requisitório (previdenciária, IR…), deduzidas do valor de face para chegar ao líquido do crédito. Linha à parte dos honorários.">i</span></span><span class="v" id="rDescontos">—</span></div>
-              <div class="res tot hide" id="rowLiquido"><span class="k">Valor líquido do crédito</span><span class="v" id="rLiquido">—</span></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2 class="sec">Resumo do crédito</h2>
+            <div class="decomp">
+              <div class="res"><span class="k">Valor original <span id="qDataBase" style="color:var(--ink-mute);font-size:11px;"></span></span><span class="v" id="qOriginal">—</span></div>
+              <div class="res"><span class="k">(+) Correção monetária + juros<span class="help" title="Atualização do valor original até a data do cálculo (correção monetária + juros de mora; a Selic engloba os dois em parte do período — por isso somados numa linha).">i</span></span><span class="v" id="qAtualiza">—</span></div>
+              <div class="res tot"><span class="k">(=) Valor de face corrigido (hoje)</span><span class="v" id="qFace">—</span></div>
+              <div class="res hide" id="qRowDesc"><span class="k">(−) Descontos / contribuições<span class="help" title="Retenções do Ofício Requisitório (previdenciária, IR…), proporção fixa do crédito — corrigidas até a data do cálculo. Rubrica à parte do honorário.">i</span></span><span class="v" id="qDesc">—</span></div>
+              <div class="res tot hide" id="qRowLiq"><span class="k">(=) Valor líquido do crédito</span><span class="v" id="qLiq">—</span></div>
+              <div class="res hide" id="qRowHon"><span class="k" id="qHonK">(−) Honorário</span><span class="v" id="qHon">—</span></div>
+              <div class="res tot hide" id="qRowCredor"><span class="k" id="qCredorK">(=) Valor líquido do credor</span><span class="v" id="qCredor">—</span></div>
               <div class="flagitem hide" id="notaRemuneratorio" style="margin-top:8px;">Crédito remuneratório pode ter contribuição previdenciária / IR — confira a seção Contribuições do Ofício Requisitório.</div>
-              <div class="res hide" id="rowHonorario"><span class="k">Honorários (<span id="rHonorarioPct">—</span>%)<span class="help" title="Fase 2 (correcao.honorario): percentual sobre a base escolhida, calculado à parte do valor de face.">i</span></span><span class="v" id="rHonorarioValor">—</span></div>
-              <div class="res tot hide" id="rowTotalHonorario"><span class="k">Total com honorários</span><span class="v" id="rTotalComHonorarios">—</span></div>
             </div>
           </div>
 
@@ -3990,38 +3999,36 @@ function renderResultado(cr, res){
   $('rPrincipal').textContent = fmtBRL(res.principal);
   renderDecompFasesTela(cr, res);
 
-  // Descontos/contribuições (pós-processamento, linha à parte dos honorários -- CalcEngine.valorLiquido).
-  // O desconto é PROPORÇÃO do crédito original (valor_historico) e corrige junto: passa valor_historico
-  // como base -> o valor exibido já vem corrigido para a data do cálculo (cresce com o crédito).
+  // ---- Resumo do crédito (DRE condensado): valor original -> atualização -> face -> descontos ->
+  // líquido -> honorário -> líquido do credor. Descontos e honorário são rubricas SEPARADAS. ----
+  // Desconto = PROPORÇÃO do crédito original (valor_historico) e corrige junto (base = valor_historico).
   const liq = CalcEngine.valorLiquido(res.valor_corrigido_hoje, cr.descontos, cr.valor_historico);
-  const rowDesc = $('rowDescontos'), rowLiq = $('rowLiquido');
-  if (cr.descontos.length && liq.total_descontos > 0){
-    rowDesc.classList.remove('hide'); rowLiq.classList.remove('hide');
-    $('rDescontos').textContent = '− ' + fmtBRL(liq.total_descontos);
-    $('rLiquido').textContent = fmtBRL(liq.valor_liquido);
-  } else {
-    rowDesc.classList.add('hide'); rowLiq.classList.add('hide');
-  }
-  // Nota-lembrete: crédito remuneratório (servidor/militar) sem descontos preenchidos -- não trava
-  // o cálculo, só sinaliza que a Contribuições do Ofício Requisitório merece conferência.
-  const notaRem = $('notaRemuneratorio');
+  $('qDataBase').textContent = cr.data_base_correcao ? '(data-base ' + fmtDataBR(cr.data_base_correcao) + ')' : '';
+  $('qOriginal').textContent = fmtBRL(cr.valor_historico);
+  $('qAtualiza').textContent = '+ ' + fmtBRL(res.valor_corrigido_hoje - cr.valor_historico);
+  $('qFace').textContent = fmtBRL(res.valor_corrigido_hoje);
+  const temD = cr.descontos.length && liq.total_descontos > 0;
+  $('qRowDesc').classList.toggle('hide', !temD);
+  $('qRowLiq').classList.toggle('hide', !temD);
+  if (temD){ $('qDesc').textContent = '− ' + fmtBRL(liq.total_descontos); $('qLiq').textContent = fmtBRL(liq.valor_liquido); }
+  const liquidoCredito = temD ? liq.valor_liquido : res.valor_corrigido_hoje;   // base p/ o honorário no fecho
+  // Nota-lembrete: crédito remuneratório (servidor/militar) sem descontos preenchidos.
   const eRemun = (cr.natureza_verba === 'servidor' || cr.natureza_verba === 'militar');
-  if (eRemun && !cr.descontos.length){ notaRem.classList.remove('hide'); } else { notaRem.classList.add('hide'); }
+  $('notaRemuneratorio').classList.toggle('hide', !(eRemun && !cr.descontos.length));
 
   const hon = calcularHonorario(res);
   if (hon){
-    const hr = CalcEngine.honorarioResumo(res.valor_corrigido_hoje, hon.valor, $('inHonorarioModo').value);
-    $('rowHonorario').classList.remove('hide');
-    $('rowTotalHonorario').classList.remove('hide');
-    $('rHonorarioPct').textContent = $('inHonorarioPct').value.replace('.', ',');
-    $('rHonorarioValor').textContent = hr.sinal + ' ' + fmtBRL(hr.honorario);
-    $('rTotalComHonorarios').textContent = fmtBRL(hr.valorFecho);
-    document.querySelector('#rowTotalHonorario .k').textContent = hr.rotuloFecho;
-    // rótulo da linha: markup é "Honorários (<span id=rHonorarioPct>..</span>%)"; o 1º nó de texto é "Honorários ("
-    document.querySelector('#rowHonorario .k').childNodes[0].nodeValue = (hr.modo === 'embutido' ? 'Honorários embutidos (' : 'Honorários (');
+    // honorário embutido (−) deduz do líquido do credor; adicionado (+) fica por fora (informativo).
+    const embut = ($('inHonorarioModo').value === 'embutido');
+    const pct = $('inHonorarioPct').value.replace('.', ',');
+    $('qRowHon').classList.remove('hide'); $('qRowCredor').classList.remove('hide');
+    $('qHonK').textContent = embut ? ('(−) Honorário embutido (' + pct + '%)') : ('(+) Honorário por fora (' + pct + '%)');
+    $('qHon').textContent = (embut ? '− ' : '+ ') + fmtBRL(hon.valor);
+    $('qCredor').textContent = fmtBRL(embut ? (liquidoCredito - hon.valor) : liquidoCredito);
+    $('qCredorK').textContent = embut ? '(=) Valor líquido do credor' : '(=) Valor líquido do credor (honorário à parte)';
   } else {
-    $('rowHonorario').classList.add('hide');
-    $('rowTotalHonorario').classList.add('hide');
+    $('qRowHon').classList.add('hide');
+    $('qRowCredor').classList.add('hide');
   }
 
   const box = $('flagsBox');
