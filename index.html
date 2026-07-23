@@ -384,10 +384,10 @@
         <div class="panel">
           <h2 class="sec">Descontos / Contribuições <span style="font-weight:400;text-transform:none;letter-spacing:0;">(Ofício Requisitório)</span></h2>
           <table class="jmtab" id="tblDescontos">
-            <thead><tr><th>Rótulo</th><th>Valor (R$)</th><th></th></tr></thead>
+            <thead><tr><th>Rótulo</th><th>Valor</th><th>Tipo</th><th></th></tr></thead>
             <tbody></tbody>
           </table>
-          <div class="btnrow"><button type="button" class="btn" onclick="addDesconto()">+ adicionar desconto</button></div>
+          <div class="btnrow"><button type="button" class="btn" onclick="addDesconto()">+ adicionar desconto</button><button type="button" class="btn" onclick="addDesconto('IR fonte — retenção art. 27 Lei 10.833/03 [a validar]', 3, 'pct')">+ IR fonte 3%</button></div>
           <div class="hint" style="font-size:10.5px;color:var(--ink-soft);margin-top:4px;">Retenções deduzidas no pagamento (previdenciária SPPREV/INSS, IR/RRA). Reduzem o líquido do titular.</div>
         </div>
 
@@ -3155,15 +3155,19 @@ function honorarioResumo(valorFace, honorario, modo) {
 // valor_liquido() do motor: liquido = bruto - Σ descontos (valores dados, nao calculados).
 // pyRound espelha o round() do CPython (paridade). Ver correcao.py::valor_liquido.
 function valorLiquido(bruto, descontos, valorBase) {
-  // Espelho de correcao.valor_liquido: descontos sao PROPORCAO do credito original (p = Σdesc/base)
-  // e crescem junto com a correcao -> total aplicado = Σdesc * (bruto/base). valorBase = valor
-  // original informado (calculadora: valor_historico); ausente => base=bruto => fator 1 (subtracao simples).
-  let soma = 0;
-  for (let i = 0; i < descontos.length; i++) soma += descontos[i].valor;
-  soma = pyRound(soma, 2);
+  // Espelho de correcao.valor_liquido: brl = proporcao do credito original (corrige junto);
+  // pct = fracao direta (valor/100) sobre o corrigido. tipo ausente => "brl" (retrocompat).
+  let somaBrl = 0, somaPct = 0;
+  for (let i = 0; i < descontos.length; i++) {
+    if ((descontos[i].tipo || "brl") === "pct") somaPct += descontos[i].valor;
+    else somaBrl += descontos[i].valor;
+  }
+  somaBrl = pyRound(somaBrl, 2);
   const base = (valorBase && valorBase > 0) ? valorBase : bruto;
   const fator = base ? (bruto / base) : 1;
-  const total = pyRound(soma * fator, 2);
+  const totalBrl = pyRound(somaBrl * fator, 2);
+  const totalPct = pyRound(somaPct / 100 * bruto, 2);
+  const total = pyRound(totalBrl + totalPct, 2);
   return { bruto: bruto, total_descontos: total, valor_liquido: pyRound(bruto - total, 2), descontos: descontos };
 }
 
@@ -3746,16 +3750,18 @@ function limparJurosManuais(){
 // Descontos/contribuições do Ofício Requisitório (previdenciária, IR...), deduzidos do valor de
 // face para chegar ao líquido do credor (CalcEngine.valorLiquido, pós-processamento -- não entra
 // no motor de correção). Mesmo padrão visual/interação de addJanela() acima.
-function addDesconto(rotulo, valor){
+function addDesconto(rotulo, valor, tipo){
   const tbody = $('tblDescontos').querySelector('tbody');
   const tr = document.createElement('tr');
   tr.innerHTML =
     '<td><input type="text" class="dc-rotulo" placeholder="INST.PREV. - SPPREV"></td>' +
     '<td><input type="number" step="0.01" min="0" class="dc-valor" placeholder="0,00" oninput="calcularDebounced()"></td>' +
+    '<td><select class="dc-tipo" onchange="calcular()"><option value="brl">R$</option><option value="pct">%</option></select></td>' +
     '<td><button type="button" class="btn rm" onclick="this.closest(\'tr\').remove();calcular()">&times;</button></td>';
   tbody.appendChild(tr);
   if (rotulo) tr.querySelector('.dc-rotulo').value = rotulo;
   if (valor !== undefined && valor !== null) tr.querySelector('.dc-valor').value = valor;
+  if (tipo) tr.querySelector('.dc-tipo').value = tipo;
   tr.querySelector('.dc-rotulo').addEventListener('input', calcularDebounced);
   calcular();
 }
@@ -3795,7 +3801,8 @@ function lerCredito(){
   document.querySelectorAll('#tblDescontos tbody tr').forEach(function(tr){
     const rot = (tr.querySelector('.dc-rotulo').value || '').trim();
     const v = parseFloat(tr.querySelector('.dc-valor').value);
-    if (rot && !isNaN(v)) descontos.push({rotulo: rot, valor: v, fonte: null});
+    const tp = tr.querySelector('.dc-tipo') ? tr.querySelector('.dc-tipo').value : 'brl';
+    if (rot && !isNaN(v)) descontos.push({rotulo: rot, valor: v, fonte: null, tipo: tp});
   });
   return {
     valor_historico: parseBRLInput($('inValor').value),
@@ -4122,7 +4129,7 @@ function abrirSimulador(){
   const hp = $('inHonorarioPct').value;
   if (hp !== '' && parseFloat(hp) > 0){ q.set('hp', hp); q.set('hm', $('inHonorarioModo').value); }
   // descontos / contribuicoes -> tabela do simulador (base64 JSON, mesmo padrao do estado ?c=)
-  const desc = (cr.descontos || []).map(function(d){ return {rotulo: d.rotulo, valor: d.valor}; });
+  const desc = (cr.descontos || []).map(function(d){ return {rotulo: d.rotulo, valor: d.valor, tipo: d.tipo || 'brl'}; });
   if (desc.length) q.set('desc', btoa(unescape(encodeURIComponent(JSON.stringify(desc)))));
   // nome do caso -> Nome do credito (DIU)
   const nome = ($('docNome').value || '').trim();
@@ -4588,7 +4595,9 @@ function buildState(){
   });
   const descontos = [];
   document.querySelectorAll('#tblDescontos tbody tr').forEach(function(tr){
-    descontos.push({rotulo: tr.querySelector('.dc-rotulo').value, valor: tr.querySelector('.dc-valor').value});
+    descontos.push({rotulo: tr.querySelector('.dc-rotulo').value,
+                    valor: tr.querySelector('.dc-valor').value,
+                    tipo: tr.querySelector('.dc-tipo') ? tr.querySelector('.dc-tipo').value : 'brl'});
   });
   return {
     v: 1,
@@ -4642,7 +4651,7 @@ function applyState(s){
     }
     document.querySelector('#tblDescontos tbody').innerHTML = '';
     if (Array.isArray(s.descontos)){
-      s.descontos.forEach(function(d){ addDesconto(d.rotulo, d.valor); });
+      s.descontos.forEach(function(d){ addDesconto(d.rotulo, d.valor, d.tipo); });
     }
     $('inJurosSoTitulo').checked = !!s.jurosSoTitulo;
     if (s.corrJanelaSelic) $('inCorrJanelaSelic').value = s.corrJanelaSelic;
